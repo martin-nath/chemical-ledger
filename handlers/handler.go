@@ -154,22 +154,24 @@ func InsertChemical(w http.ResponseWriter, r *http.Request) {
 // FetchTransactions fetches transactions based on JSON filters.
 // Expect JSON body even though GET is more conventionally paired with query parameters.
 func FetchTransactions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Decode JSON body into a filter struct
-	var filter struct {
-		Type         string `json:"type"`
-		CompoundName string `json:"compound_name"`
-		FromDate     string `json:"from"`
-		ToDate       string `json:"to"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&filter); err != nil {
-		http.Error(w, "Invalid JSON body: "+err.Error(), http.StatusBadRequest)
-		return
-	}
+	// Parse query parameters from URL
+filter := struct {
+	Type         string
+	CompoundName string
+	FromDate     string
+	ToDate       string
+}{
+	Type:         r.URL.Query().Get("type"),
+	CompoundName: r.URL.Query().Get("compound_name"),
+	FromDate:     r.URL.Query().Get("from"),
+	ToDate:       r.URL.Query().Get("to"),
+}
+
 
 	// Build the query dynamically
 	query := `

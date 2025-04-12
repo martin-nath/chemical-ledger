@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -34,14 +35,9 @@ func InsertChemical(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set default for NoOfUnits if not provided (or <= 0)
-	if transaction.NoOfUnits <= 0 {
-		transaction.NoOfUnits = 1
-	}
-
 	// Validate required fields
 	if transaction.Type == "" || transaction.Date == "" || transaction.CompoundName == "" ||
-		transaction.QuantityPerUnit <= 0 || transaction.Unit == "" {
+		transaction.QuantityPerUnit <= 0 || transaction.Unit == "" || transaction.NoOfUnits <= 0 {
 		http.Error(w, "Missing or invalid required fields", http.StatusBadRequest)
 		return
 	}
@@ -52,68 +48,90 @@ func InsertChemical(w http.ResponseWriter, r *http.Request) {
 	// Calculate total transaction quantity (units * quantity per unit)
 	txnQuantity := transaction.NoOfUnits * transaction.QuantityPerUnit
 
-	// Check if the chemical exists and get its current net_stock
+	const (
+		TransactionIncoming = "Incoming"
+		TransactionOutgoing = "Outgoing"
+	)
+
 	var currentStock int
 	err := db.Db.QueryRow("SELECT net_stock FROM chemicals WHERE id = ?", chemicalID).Scan(&currentStock)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			// Chemical does not exist. For an Incoming transaction, insert it with initial stock.
-			// For Outgoing, you cannot subtract stock from nothing.
-			if transaction.Type == "Outgoing" {
-				http.Error(w, "Cannot process outgoing transaction: stock is less", http.StatusBadRequest)
-				return
-			}
-			// Insert new chemical with net_stock = txnQuantity
-			insertChemicalQuery := `
+
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		// Chemical doesn't exist
+		switch transaction.Type {
+		case TransactionOutgoing:
+			http.Error(w, "Cannot process outgoing transaction: stock is less", http.StatusBadRequest)
+			return
+
+		case TransactionIncoming:
+			insertQuery := `
                 INSERT INTO chemicals (id, name, net_stock)
                 VALUES (?, ?, ?)
             `
-			_, err := db.Db.Exec(insertChemicalQuery, chemicalID, transaction.CompoundName, txnQuantity)
+			_, err := db.Db.Exec(insertQuery, chemicalID, transaction.CompoundName, txnQuantity)
 			if err != nil {
 				log.Println("Error inserting chemical:", err)
 				http.Error(w, "Failed to insert chemical: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
-			currentStock = txnQuantity // new stock set
-		} else {
-			log.Println("Error fetching chemical:", err)
-			http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+			currentStock = txnQuantity
+			w.WriteHeader(http.StatusOK)
+			return
+
+		default:
+			http.Error(w, "Invalid transaction type", http.StatusBadRequest)
 			return
 		}
-	} else {
-		// Chemical exists; update net_stock based on transaction type
-		if transaction.Type == "Incoming" {
+
+	case err != nil:
+		log.Println("Error fetching chemical:", err)
+		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+		return
+
+	default:
+		// Chemical exists
+		switch transaction.Type {
+		case TransactionIncoming:
 			currentStock += txnQuantity
-		} else if transaction.Type == "Outgoing" {
+
+		case TransactionOutgoing:
 			if currentStock < txnQuantity {
 				http.Error(w, "Stock is less than requested outgoing quantity", http.StatusBadRequest)
 				return
 			}
 			currentStock -= txnQuantity
-		} else {
+
+		default:
 			http.Error(w, "Invalid transaction type", http.StatusBadRequest)
 			return
 		}
-		// Update the chemical's net_stock
+
 		_, err := db.Db.Exec("UPDATE chemicals SET net_stock = ? WHERE id = ?", currentStock, chemicalID)
 		if err != nil {
 			log.Println("Error updating net_stock:", err)
 			http.Error(w, "Failed to update net_stock: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+		w.WriteHeader(http.StatusOK)
 	}
 
 	// Generate a custom transaction ID:
 	// Start with "I" if Incoming or "O" if Outgoing plus the chemicalID and a Unix timestamp.
 	var typePrefix string
-	if transaction.Type == "Incoming" {
+
+	switch transaction.Type {
+	case "Incoming":
 		typePrefix = "I"
-	} else if transaction.Type == "Outgoing" {
+	case "Outgoing":
 		typePrefix = "O"
-	} else {
+	case "Both":
+		break
+	default:
 		http.Error(w, "Invalid transaction type", http.StatusBadRequest)
 		return
 	}
+
 	transactionID := fmt.Sprintf("%s%s_%d", typePrefix, chemicalID, time.Now().UnixNano())
 
 	// Insert the transaction using the custom transaction ID and the chemicalID

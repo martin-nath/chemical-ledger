@@ -6,48 +6,59 @@ import (
 )
 
 // Migrate creates the required tables if they do not exist
-func Migrate(db *sql.DB) error {
-    // Create the `chemicals` table with net_stock field (default 0)
-    chemicalsTable := `
-    CREATE TABLE IF NOT EXISTS chemicals (
-        id TEXT PRIMARY KEY,      -- custom chemical id (camelCase name)
-        name TEXT NOT NULL UNIQUE,
-        net_stock INTEGER NOT NULL DEFAULT 0
-    );
+func CreateTables(db *sql.DB) error {
+    compoundTable := `
+    CREATE TABLE IF NOT EXISTS compound (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  scale TEXT CHECK(scale IN ('mg', 'ml'))
+);
 `
-    if _, err := db.Exec(chemicalsTable); err != nil {
-        return fmt.Errorf("failed to create chemicals table: %w", err)
+    if _, err := db.Exec(compoundTable); err != nil {
+        return fmt.Errorf("failed to create compound table: %w", err)
     }
 
-    // Create the `transactions` table
-    transactionsTable := `
-    CREATE TABLE IF NOT EXISTS transactions (
-        id TEXT PRIMARY KEY,      -- custom transaction id (I/O + camelCase chemical name + timestamp)
-        type TEXT NOT NULL CHECK (type IN ('Incoming','Outgoing')),
-        date TEXT NOT NULL,
-        chemical_id TEXT NOT NULL,
-        no_of_units INTEGER NOT NULL,
-        quantity_per_unit INTEGER NOT NULL,
-        unit TEXT NOT NULL,
-        remark TEXT,
-        voucher_no TEXT,
-        FOREIGN KEY (chemical_id) REFERENCES chemicals(id)
-    );
+    quantityTable := `
+    CREATE TABLE IF NOT EXISTS quantity (
+  id TEXT PRIMARY KEY,
+  num_of_units INT NOT NULL,
+  quantity_per_unit INT NOT NULL
+);
 `
-    if _, err := db.Exec(transactionsTable); err != nil {
-        return fmt.Errorf("failed to create transactions table: %w", err)
+    if _, err := db.Exec(quantityTable); err != nil {
+        return fmt.Errorf("failed to create quantity table: %w", err)
     }
 
+
+entryTable := `CREATE TABLE IF NOT EXISTS entry (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL CHECK(type IN ('incoming', 'outgoing')),
+  compound_id TEXT NOT NULL,
+  date DATE NOT NULL,
+  remark TEXT,
+  voucher_no TEXT,
+  quantity_id TEXT NOT NULL,
+  net_stock INT NOT NULL,
+  FOREIGN KEY(compound_id) REFERENCES compound(id)
+  FOREIGN KEY(quantity_id) REFERENCES quantity(id)
+);
+`
+    if _, err := db.Exec(entryTable); err != nil {
+        return fmt.Errorf("failed to create entry table: %w", err)
+    }
     return nil
 }
 
 // DropTables drops the `chemicals` and `transactions` tables
 func DropTables(db *sql.DB) error {
-    if _, err := db.Exec("DROP TABLE IF EXISTS transactions;"); err != nil {
-        return fmt.Errorf("failed to drop transactions table: %w", err)
+    if _, err := db.Exec("DROP TABLE IF EXISTS compound;"); err != nil {
+        return fmt.Errorf("failed to drop compound table: %w", err)
     }
-    if _, err := db.Exec("DROP TABLE IF EXISTS chemicals;"); err != nil {
-        return fmt.Errorf("failed to drop chemicals table: %w", err)
+    if _, err := db.Exec("DROP TABLE IF EXISTS quantity;"); err != nil {
+        return fmt.Errorf("failed to drop quantity table: %w", err)
+    }
+    if _, err := db.Exec("DROP TABLE IF EXISTS entry;"); err != nil {
+        return fmt.Errorf("failed to drop entry table: %w", err)
     }
     return nil
 }

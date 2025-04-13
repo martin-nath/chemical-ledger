@@ -29,7 +29,7 @@ func main() {
 	}
 
 	// Run migrations
-	if err := migrate.Migrate(db.Db); err != nil {
+	if err := migrate.CreateTables(db.Db); err != nil {
 		log.Fatalf("Migration failed: %v", err)
 	}
 

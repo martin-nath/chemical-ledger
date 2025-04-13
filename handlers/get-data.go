@@ -37,18 +37,18 @@ SELECT
 	e.id, e.type, e.date, e.remark, e.voucher_no, e.net_stock,
 	c.name, c.scale,
 	q.num_of_units, q.quantity_per_unit
-FROM entry
-JOIN compound ON e.compound_id = c.id
-JOIN quantity ON e.quantity_id = q.id
+FROM entry as e
+JOIN compound as c ON e.compound_id = c.id
+JOIN quantity as q ON e.quantity_id = q.id
 WHERE 1=1
 `)
 
 	countQueryBuilder := strings.Builder{}
 	countQueryBuilder.WriteString(`
 SELECT COUNT(*)
-FROM entry
-JOIN compound ON e.compound_id = c.id
-JOIN quantity ON e.quantity_id = q.id
+FROM entry as e
+JOIN compound as c ON e.compound_id = c.id
+JOIN quantity as q ON e.quantity_id = q.id
 WHERE 1=1
 `)
 
@@ -105,6 +105,7 @@ WHERE 1=1
 	rows, err := db.Db.Query(query, filterArgs...)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 		return
 	}
 	wg.Wait()

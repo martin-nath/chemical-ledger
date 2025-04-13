@@ -2,15 +2,16 @@ package handlers
 
 import (
 	"strings"
-
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 func toCamelCase(s string) string {
 	words := strings.Fields(s)
 	for i, w := range words {
-		words[i] = cases.Title(language.Und, cases.NoLower).String(w)
+		words[i] = strings.ToLower(w)
+		if i == 0 {
+			continue
+		}
+		words[i] = strings.ToUpper(words[i][0:1]) + w[1:]
 	}
 	return strings.Join(words, "")
 }
@@ -24,10 +25,10 @@ type Chemical struct {
 
 // Transaction represents a chemical transaction.
 type Filters struct {
-	Type            string `json:"type"` // "Incoming" or "Outgoing"
-	FromDate        string `json:"from_date"`
-	ToDate          string `json:"to_date"`
-	CompoundName    string `json:"compound_name"` // Original chemical name (for display)
+	Type         string `json:"type"` // "Incoming" or "Outgoing"
+	FromDate     string `json:"from_date"`
+	ToDate       string `json:"to_date"`
+	CompoundName string `json:"compound_name"` // Original chemical name (for display)
 }
 
 type Entry struct {

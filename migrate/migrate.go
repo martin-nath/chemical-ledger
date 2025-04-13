@@ -39,7 +39,7 @@ entryTable := `CREATE TABLE IF NOT EXISTS entry (
   voucher_no TEXT,
   quantity_id TEXT NOT NULL,
   net_stock INT NOT NULL,
-  FOREIGN KEY(compound_id) REFERENCES compound(id)
+  FOREIGN KEY(compound_id) REFERENCES compound(id),
   FOREIGN KEY(quantity_id) REFERENCES quantity(id)
 );
 `

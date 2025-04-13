@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/martin-nath/chemical-ledger/db"
+	"github.com/martin-nath/chemical-ledger/utils"
 )
 
 func GetData(w http.ResponseWriter, r *http.Request) {
@@ -16,7 +17,7 @@ func GetData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filters := &Filters{}
+	filters := &utils.Filters{}
 
 	if val, ok := r.URL.Query()["type"]; ok && len(val[0]) > 0 {
 		filters.Type = val[0]
@@ -117,13 +118,13 @@ WHERE 1=1
 		return
 	}
 
-	entries := make([]Entry, <-count)
+	entries := make([]utils.Entry, <-count)
 	ind = 0
 
 	defer rows.Close()
 
 	for rows.Next() {
-		var e Entry
+		var e utils.Entry
 
 		err := rows.Scan(
 			&e.ID, &e.Type, &e.Date, &e.Remark, &e.VoucherNo, &e.NetStock,

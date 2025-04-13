@@ -168,7 +168,6 @@
 //		fmt.Fprintln(w, `{"message": "Chemical and entry inserted successfully", "entry_id": "`+entryID+`"}`)
 //	}
 
-
 package handlers
 
 import (
@@ -181,6 +180,7 @@ import (
 	"time"
 
 	"github.com/martin-nath/chemical-ledger/db"
+	"github.com/martin-nath/chemical-ledger/utils"
 )
 
 func InsertData(w http.ResponseWriter, r *http.Request) {
@@ -189,7 +189,7 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var entry Entry
+	var entry utils.Entry
 	if err := json.NewDecoder(r.Body).Decode(&entry); err != nil {
 		http.Error(w, "Invalid JSON data: "+err.Error(), http.StatusBadRequest)
 		return
@@ -207,7 +207,7 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chemicalID := toCamelCase(entry.CompoundName)
+	chemicalID := utils.ToCamelCase(entry.CompoundName)
 	txnQuantity := entry.NumOfUnits * entry.QuantityPerUnit
 
 	const (

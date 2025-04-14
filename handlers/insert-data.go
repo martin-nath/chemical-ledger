@@ -15,7 +15,7 @@ import (
 
 func InsertData(w http.ResponseWriter, r *http.Request) {
 
-	if r.Method != http.MethodPost && r.Method != http.MethodDelete && r.Method != http.MethodPut {
+	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
@@ -27,20 +27,6 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Println(entry)
-
-	if r.Method == http.MethodDelete {
-		// Delete entry
-		deleteEntry := `DELETE FROM compound WHERE id = ?;`
-		_, err := db.Db.Exec(deleteEntry, entry.ID)
-		if err != nil {
-			log.Println("Error deleting entry:", err)
-			http.Error(w, "Failed to delete entry: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"message": "Entry deleted successfully", "entry_id": "%s"}`, entry.ID)
-		return
-	}
 
 	// Date validation
 	_, dateFormatErr := time.Parse("2006-01-02", entry.Date)

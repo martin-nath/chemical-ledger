@@ -14,7 +14,8 @@ import (
 )
 
 func InsertData(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete && r.Method != http.MethodPut {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
@@ -22,6 +23,22 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 	var entry utils.Entry
 	if err := json.NewDecoder(r.Body).Decode(&entry); err != nil {
 		http.Error(w, "Invalid JSON data: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	fmt.Println(entry)
+
+	if r.Method == http.MethodDelete {
+		// Delete entry
+		deleteEntry := `DELETE FROM compound WHERE id = ?;`
+		_, err := db.Db.Exec(deleteEntry, entry.ID)
+		if err != nil {
+			log.Println("Error deleting entry:", err)
+			http.Error(w, "Failed to delete entry: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `{"message": "Entry deleted successfully", "entry_id": "%s"}`, entry.ID)
 		return
 	}
 

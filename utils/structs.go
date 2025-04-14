@@ -9,10 +9,10 @@ type Chemical struct {
 
 // Transaction represents a chemical transaction.
 type Filters struct {
-	Type         string `json:"type"` // "Incoming" or "Outgoing"
+	Type         string `json:"type"`
 	FromDate     string `json:"from_date"`
 	ToDate       string `json:"to_date"`
-	CompoundName string `json:"compound_name"` // Original chemical name (for display)
+	CompoundName string `json:"compound_name"`
 }
 
 type Entry struct {

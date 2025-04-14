@@ -32,6 +32,16 @@ func GetData(w http.ResponseWriter, r *http.Request) {
 		filters.ToDate = val[0]
 	}
 
+
+	if filters.Type != "incoming" && filters.Type != "outgoing" && filters.Type != "both" && filters.Type != "" {
+		http.Error(w, "Invalid type", http.StatusBadRequest)
+		return
+	}
+
+	if filters.ToDate < filters.FromDate {
+		http.Error(w, "Invalid date range", http.StatusBadRequest)
+	}
+
 	queryBuilder := strings.Builder{}
 	queryBuilder.WriteString(`
 SELECT
@@ -150,4 +160,5 @@ WHERE 1=1
 		http.Error(w, "json encoding error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 }

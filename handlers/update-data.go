@@ -16,12 +16,12 @@ func UpdateEntryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse query parameters
-	entryIDStr := r.URL.Query().Get("id")
+	entryIDStr := r.URL.Query().Get("entry_id")
 	numOfUnitsStr := r.URL.Query().Get("num_of_units")
 	quantityPerUnitStr := r.URL.Query().Get("quantity_per_unit")
-	entryType := r.URL.Query().Get("type")
+	entryType := r.URL.Query().Get("new_type")
 
-	if entryIDStr == "" || numOfUnitsStr == "" || quantityPerUnitStr == "" || entryType == "" {
+	if entryIDStr == "" && numOfUnitsStr == "" && quantityPerUnitStr == "" && entryType == "" {
 		http.Error(w, "Missing required parameters", http.StatusBadRequest)
 		return
 	}

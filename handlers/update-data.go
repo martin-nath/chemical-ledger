@@ -9,6 +9,12 @@ import (
 )
 
 func UpdateEntryHandler(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodPut {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
 	// Parse query parameters
 	entryIDStr := r.URL.Query().Get("id")
 	numOfUnitsStr := r.URL.Query().Get("num_of_units")

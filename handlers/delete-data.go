@@ -10,6 +10,12 @@ import (
 )
 
 func DeleteEntryHandler(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodPut {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
 	entryIDStr := r.URL.Query().Get("id")
 	if entryIDStr == "" {
 		http.Error(w, "Missing entry ID", http.StatusBadRequest)

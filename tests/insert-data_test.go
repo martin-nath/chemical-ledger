@@ -63,7 +63,7 @@ func TestInsertData(t *testing.T) {
 	}
 
 	t.Run("Basic Tests", func(t *testing.T) {
-		pastDate := time.Now().AddDate(0, -1, 0).Format("02-01-2006")
+		pastDate := "01-01-2006"
 
 		testCases := []struct {
 			name           string
@@ -78,7 +78,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_name":     "TestCompoundNew",
+					"compound_name":     "testcompoundNew",
 					"scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
@@ -92,7 +92,7 @@ func TestInsertData(t *testing.T) {
 					"date":          pastDate,
 					"remark":        "Test Remark",
 					"voucher_no":    "12345",
-					"compound_name": "TestCompound",
+					"compound_name": "testcompound",
 					"scale":         "mg",
 					"num_of_units":  10,
 					// Missing "quantity_per_unit"
@@ -107,7 +107,7 @@ func TestInsertData(t *testing.T) {
 					"date":              "15042025", // Invalid date format
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
@@ -122,7 +122,7 @@ func TestInsertData(t *testing.T) {
 					"date":              time.Now().AddDate(0, 1, 0).Format("02-01-2006"), // Future date
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
@@ -137,7 +137,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "kg", // Invalid scale
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
@@ -152,7 +152,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
@@ -167,7 +167,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 0,
@@ -182,7 +182,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "mg",
 					"num_of_units":      0,
 					"quantity_per_unit": 5,
@@ -203,7 +203,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
@@ -218,7 +218,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "MG", // Uppercase scale
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
@@ -233,7 +233,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
@@ -248,7 +248,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "",
 					"voucher_no":        "",
-					"compound_name":     "TestCompoundEmptyDetails",
+					"compound_name":     "testcompoundEmptyDetails",
 					"scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
@@ -280,10 +280,10 @@ func TestInsertData(t *testing.T) {
 		// Helper function to insert initial stock
 		insertInitialStock := func() {
 			_, err := db.Db.Exec(`
-				INSERT INTO compound (id, name, scale) VALUES ('TestCompound', 'TestCompound', 'mg');
-				INSERT INTO quantity (id, num_of_units, quantity_per_unit) VALUES ('Q_TestCompound_1', 10, 5);
+				INSERT INTO compound (id, name, scale) VALUES ('testcompound', 'testcompound', 'mg');
+				INSERT INTO quantity (id, num_of_units, quantity_per_unit) VALUES ('Q_testcompound_1', 10, 5);
 				INSERT INTO entry (id, type, date, compound_id, remark, voucher_no, quantity_id, net_stock)
-				VALUES ('E_TestCompound_1', 'incoming', ?, 'TestCompound', 'Initial Stock', '12345', 'Q_TestCompound_1', 50);
+				VALUES ('E_testcompound_1', 'incoming', ?, 'testcompound', 'Initial Stock', '12345', 'Q_testcompound_1', 50);
 			`, pastDate)
 			if err != nil {
 				t.Fatalf("Failed to insert initial stock: %v", err)
@@ -319,7 +319,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "mg",
 					"num_of_units":      5,
 					"quantity_per_unit": 5,
@@ -333,7 +333,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
@@ -347,7 +347,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "mg",
 					"num_of_units":      11,
 					"quantity_per_unit": 5,
@@ -377,7 +377,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "67890",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "mg",
 					"num_of_units":      5,
 					"quantity_per_unit": 10,
@@ -391,7 +391,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "13579",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "ml", // Different scale, but compound already exists with 'mg' - this might be a design consideration, current logic allows it.
 					"num_of_units":      2,
 					"quantity_per_unit": 25,
@@ -405,7 +405,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "New Compound Added",
 					"voucher_no":        "24680",
-					"compound_name":     "NewTestCompound",
+					"compound_name":     "Newtestcompound",
 					"scale":             "ml",
 					"num_of_units":      3,
 					"quantity_per_unit": 100,
@@ -419,7 +419,7 @@ func TestInsertData(t *testing.T) {
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_name":     "TestCompound",
+					"compound_name":     "testcompound",
 					"scale":             "mg",
 					"num_of_units":      5,
 					"quantity_per_unit": 10, // Total withdrawal of 5 * 10 = 50, which is the initial stock

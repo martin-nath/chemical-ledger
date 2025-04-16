@@ -32,7 +32,6 @@ func GetData(w http.ResponseWriter, r *http.Request) {
 		filters.ToDate = val[0]
 	}
 
-
 	if filters.Type != "incoming" && filters.Type != "outgoing" && filters.Type != "both" && filters.Type != "" {
 		http.Error(w, "Invalid type", http.StatusBadRequest)
 		return
@@ -45,7 +44,7 @@ func GetData(w http.ResponseWriter, r *http.Request) {
 	queryBuilder := strings.Builder{}
 	queryBuilder.WriteString(`
 SELECT
-	e.id, e.type, e.date, e.remark, e.voucher_no, e.net_stock,
+	e.id, e.type, datetime(e.date, 'unixepoch', 'localtime') AS date, e.remark, e.voucher_no, e.net_stock,
 	c.name, c.scale,
 	q.num_of_units, q.quantity_per_unit
 FROM entry as e
@@ -79,19 +78,19 @@ WHERE 1=1
 		ind++
 	}
 	if filters.FromDate != "" {
-		queryBuilder.WriteString(" AND e.date >= ?")
-		countQueryBuilder.WriteString(" AND e.date >= ?")
+		queryBuilder.WriteString(" AND date >= ?")
+		countQueryBuilder.WriteString(" AND date >= ?")
 		filterArgs[ind] = filters.FromDate
 		ind++
 	}
 	if filters.ToDate != "" {
-		queryBuilder.WriteString(" AND e.date <= ?")
-		countQueryBuilder.WriteString(" AND e.date <= ?")
+		queryBuilder.WriteString(" AND date <= ?")
+		countQueryBuilder.WriteString(" AND date <= ?")
 		filterArgs[ind] = filters.ToDate
 		ind++
 	}
 
-	queryBuilder.WriteString(" ORDER BY e.date DESC")
+	queryBuilder.WriteString(" ORDER BY date DESC")
 
 	query := queryBuilder.String()
 	countQuery := countQueryBuilder.String()

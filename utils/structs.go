@@ -27,3 +27,12 @@ type Entry struct {
 	NumOfUnits      int    `json:"num_of_units"`
 	QuantityPerUnit int    `json:"quantity_per_unit"`
 }
+
+type UpdatedEntry struct {
+	Type            string `json:"type"`
+	NumOfUnits      int    `json:"num_of_units"`
+	QuantityPerUnit int    `json:"quantity_per_unit"`
+	NetStock        int    `json:"net_stock"`
+	Remark          string `json:"remark"`
+	VoucherNo       string `json:"voucher_no"`
+}

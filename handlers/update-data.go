@@ -1,3 +1,5 @@
+
+
 package handlers
 
 import (
@@ -22,8 +24,8 @@ func UpdateEntryHandler(w http.ResponseWriter, r *http.Request) {
 	entryID := r.URL.Query().Get("entry_id")
 	newNumOfUnitsStr := r.URL.Query().Get("num_of_units")
 	newQuantityPerUnitStr := r.URL.Query().Get("quantity_per_unit")
-	newType := r.URL.Query().Get("new_type")
-	newCompoundName := r.URL.Query().Get("new_compound_name")
+	newType := r.URL.Query().Get("type")
+	newCompoundName := r.URL.Query().Get("compound_name")
 
 	if entryID == "" {
 		http.Error(w, "Missing required parameter: entry_id", http.StatusBadRequest)

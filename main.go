@@ -50,7 +50,6 @@ func main() {
 	http.HandleFunc("/insert", handlers.InsertData) // POST /transaction
 	http.HandleFunc("/fetch", handlers.GetData)     // GET /transactions
 	http.HandleFunc("/update", handlers.UpdateEntryHandler)
-	// http.HandleFunc("/delete", handlers.DeleteEntryHandler)
 
 	// Start the server
 	logrus.Info("Server is running on http://localhost:8080")

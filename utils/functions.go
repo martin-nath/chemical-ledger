@@ -1,7 +1,8 @@
 package utils
 
 import (
-	"fmt"
+	"encoding/json"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -32,12 +33,18 @@ func UnixTimestamp(dateStr string) (int64, error) {
 	combined := time.Date(date.Year(), date.Month(), date.Day(),
 		now.Hour(), now.Minute(), now.Second(), 0, time.Local)
 
-	// fmt.Println(now.Hour())
-	// fmt.Println(now.Minute())
-	// fmt.Println(now.Second())
-
-
-	fmt.Println(combined.Unix())
 	// Convert to Unix timestamp (UTC)
 	return combined.Unix(), nil
+}
+
+type Resp struct {
+	Error   string `json:"error"`
+	Data    any    `json:"data"`
+	Message string `json:"message"`
+}
+
+func JsonRes(w http.ResponseWriter, status int, resObj *Resp) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(resObj)
 }

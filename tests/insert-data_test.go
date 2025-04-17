@@ -46,7 +46,7 @@ func checkResponseCode(t *testing.T, expected, actual int) {
 
 func checkResponseBodyContains(t *testing.T, expectedSubstring string, actualBody string) {
 	if !strings.Contains(actualBody, expectedSubstring) {
-		t.Errorf("Expected response body to contain '%s', but got '%s'", expectedSubstring, actualBody)
+		t.Errorf("Expected response body to contain '%s', \n but got '%s'", expectedSubstring, actualBody)
 	}
 }
 
@@ -98,7 +98,7 @@ func TestInsertData(t *testing.T) {
 					// Missing "quantity_per_unit"
 				},
 				expectedStatus: http.StatusBadRequest,
-				expectedError:  "Please make sure all required information is filled in correctly.",
+				expectedError:  handlers.Id_missingFields_or_inappropriate_value,
 			},
 			{
 				name: "Invalid Date Format",
@@ -113,7 +113,7 @@ func TestInsertData(t *testing.T) {
 					"quantity_per_unit": 5,
 				},
 				expectedStatus: http.StatusBadRequest,
-				expectedError:  "Please provide the date in the format DD-MM-YYYY.",
+				expectedError:  handlers.Id_invalid_date_format,
 			},
 			{
 				name: "Invalid Date - Future Date",
@@ -128,7 +128,7 @@ func TestInsertData(t *testing.T) {
 					"quantity_per_unit": 5,
 				},
 				expectedStatus: http.StatusBadRequest,
-				expectedError:  "The date cannot be in the future.",
+				expectedError:  handlers.Id_future_date_error,
 			},
 			{
 				name: "Invalid Scale",
@@ -143,7 +143,7 @@ func TestInsertData(t *testing.T) {
 					"quantity_per_unit": 5,
 				},
 				expectedStatus: http.StatusBadRequest,
-				expectedError:  "Please make sure all required information is filled in correctly.",
+				expectedError:  handlers.Id_missingFields_or_inappropriate_value,
 			},
 			{
 				name: "Invalid Type",
@@ -158,7 +158,7 @@ func TestInsertData(t *testing.T) {
 					"quantity_per_unit": 5,
 				},
 				expectedStatus: http.StatusBadRequest,
-				expectedError:  "Please make sure all required information is filled in correctly.",
+				expectedError:  handlers.Id_missingFields_or_inappropriate_value,
 			},
 			{
 				name: "Zero QuantityPerUnit",
@@ -173,7 +173,7 @@ func TestInsertData(t *testing.T) {
 					"quantity_per_unit": 0,
 				},
 				expectedStatus: http.StatusBadRequest,
-				expectedError:  "Please make sure all required information is filled in correctly.",
+				expectedError:  handlers.Id_missingFields_or_inappropriate_value,
 			},
 			{
 				name: "Zero NumOfUnits",
@@ -188,13 +188,13 @@ func TestInsertData(t *testing.T) {
 					"quantity_per_unit": 5,
 				},
 				expectedStatus: http.StatusBadRequest,
-				expectedError:  "Please make sure all required information is filled in correctly.",
+				expectedError:  handlers.Id_missingFields_or_inappropriate_value,
 			},
 			{
 				name:           "Empty Payload",
 				requestBody:    map[string]interface{}{},
 				expectedStatus: http.StatusBadRequest,
-				expectedError:  `{"error": "Please provide the date in the format DD-MM-YYYY."}`, // Expecting date error for empty payload
+				expectedError:  handlers.Id_missingFields_or_inappropriate_value, // Expecting date error for empty payload
 			},
 			{
 				name: "Invalid Request Method - GET",
@@ -209,7 +209,7 @@ func TestInsertData(t *testing.T) {
 					"quantity_per_unit": 5,
 				},
 				expectedStatus: http.StatusMethodNotAllowed,
-				expectedError:  "This action requires using the POST method.",
+				expectedError:  handlers.Id_invalidMethod,
 			},
 			{
 				name: "Case Sensitivity - Invalid Scale (Uppercase)",
@@ -224,7 +224,7 @@ func TestInsertData(t *testing.T) {
 					"quantity_per_unit": 5,
 				},
 				expectedStatus: http.StatusBadRequest,
-				expectedError:  "Please make sure all required information is filled in correctly.",
+				expectedError:  handlers.Id_missingFields_or_inappropriate_value,
 			},
 			{
 				name: "Case Sensitivity - Invalid Type (Uppercase)",
@@ -239,7 +239,7 @@ func TestInsertData(t *testing.T) {
 					"quantity_per_unit": 5,
 				},
 				expectedStatus: http.StatusBadRequest,
-				expectedError:  "Please make sure all required information is filled in correctly.",
+				expectedError:  handlers.Id_missingFields_or_inappropriate_value,
 			},
 			{
 				name: "Empty Remark and Voucher Number",
@@ -277,14 +277,26 @@ func TestInsertData(t *testing.T) {
 	t.Run("Advanced Tests", func(t *testing.T) {
 		pastDate := time.Now().AddDate(0, -1, 0).Format("02-01-2006")
 
+		// Helper function to create a request
+		createRequest := func(method, url string, body map[string]interface{}) *http.Request {
+			reqBody, _ := json.Marshal(body)
+			req := httptest.NewRequest(method, url, bytes.NewBuffer(reqBody))
+			req.Header.Set("Content-Type", "application/json")
+			return req
+		}
+
 		// Helper function to insert initial stock
 		insertInitialStock := func() {
 			_, err := db.Db.Exec(`
-				INSERT INTO compound (id, name, scale) VALUES ('testcompound', 'testcompound', 'mg');
-				INSERT INTO quantity (id, num_of_units, quantity_per_unit) VALUES ('Q_testcompound_1', 10, 5);
+				INSERT INTO compound (id, name, scale) VALUES (?, ?, ?);
+				INSERT INTO quantity (id, num_of_units, quantity_per_unit) VALUES (?, ?, ?);
 				INSERT INTO entry (id, type, date, compound_id, remark, voucher_no, quantity_id, net_stock)
-				VALUES ('E_testcompound_1', 'incoming', ?, 'testcompound', 'Initial Stock', '12345', 'Q_testcompound_1', 50);
-			`, pastDate)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+			`,
+				"testcompound", "testcompound", "mg",
+				"Q_testcompound_1", 10, 5,
+				"E_testcompound_1", "incoming", pastDate, "testcompound", "Initial Stock", "12345", "Q_testcompound_1", 50,
+			)
 			if err != nil {
 				t.Fatalf("Failed to insert initial stock: %v", err)
 			}
@@ -353,7 +365,7 @@ func TestInsertData(t *testing.T) {
 					"quantity_per_unit": 5,
 				},
 				expectedStatus: http.StatusNotAcceptable,
-				expectedError:  "The requested quantity is not available in stock.",
+				expectedError:  handlers.Id_insufficient_stock,
 			},
 			{
 				name: "Outgoing Transaction for Nonexistent Compound",
@@ -368,7 +380,7 @@ func TestInsertData(t *testing.T) {
 					"quantity_per_unit": 5,
 				},
 				expectedStatus: http.StatusNotFound,
-				expectedError:  "The item requested could not be found.",
+				expectedError:  handlers.Id_item_not_found,
 			},
 			{
 				name: "Incoming Transaction for Existing Compound",

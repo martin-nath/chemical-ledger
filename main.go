@@ -13,22 +13,12 @@ import (
 
 func main() {
 	// Parse command-line flags
-	migrationFlag := flag.Bool("migrate", false, "Run migrations")
 	resetFlag := flag.Bool("reset", false, "Drop all tables before running migrations")
 	flag.Parse()
 
 	// Initialize the database
 	db.InitDB("./chemical_ledger.db")
 	defer db.Db.Close()
-
-	// Run migrations
-	if *migrationFlag {
-		if err := migrate.CreateTables(db.Db); err != nil {
-			log.Fatalf("Migration failed: %v", err)
-		}
-
-		fmt.Println("Migration completed successfully!")
-	}
 
 	// Drop tables if the reset flag is set
 	if *resetFlag {
@@ -37,6 +27,12 @@ func main() {
 		}
 		fmt.Println("Tables dropped successfully!")
 	}
+
+	// Create tables if they don't exist
+	if err := migrate.CreateTables(db.Db); err != nil {
+		log.Fatalf("Failed to create tables: %v", err)
+	}
+	fmt.Println("Tables created successfully!")
 
 	// Set up routes
 	http.HandleFunc("/insert", handlers.InsertData) // POST /transaction

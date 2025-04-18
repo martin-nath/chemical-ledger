@@ -105,9 +105,20 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	
+
 	var oldQuantityId string
 	// TODO: get old quantity id from db
+
+	if entry.QuantityPerUnit != 0 || entry.NumOfUnits != 0 {
+		err = dbTx.QueryRow(`SELECT quantity_id FROM entry where id = ?`, entry.ID).Scan(&oldQuantityId)
+		if err != nil {
+			utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{
+				Error: "Sorry, we're having trouble getting the stock information right now. Please try again later.",
+			})
+			logrus.Errorf("Error retrieving old quantity id: %v", err)
+			return
+		}
+	}
 
 	updateQueryBuilder := strings.Builder{}
 
@@ -153,6 +164,10 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 	utils.UpdateSubSequentNetStock(dbTx, entryDate, entry.CompoundId, w)
 
 	wg.Wait()
+
+	if entry.QuantityPerUnit != 0 || entry.NumOfUnits != 0 {
+		utils.UpdateSubSequentNetStock(dbTx, entryDate, entry.CompoundId, w)
+	}
 
 	if err := dbTx.Commit(); err != nil {
 		utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{

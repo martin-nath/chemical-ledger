@@ -16,6 +16,7 @@ import (
 )
 
 func GetData(w http.ResponseWriter, r *http.Request) {
+
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", http.MethodGet) // Inform client which method is allowed
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -125,11 +126,24 @@ WHERE 1=1`)
 	logrus.Debugf("Data Query: %s, Args: %v", queryStr, filterArgs)
 	logrus.Debugf("Count Query: %s, Args: %v", countQueryStr, filterArgs)
 
+	type Entry struct {
+		ID              string `json:"id"`
+		Type            string `json:"type"`
+		Date            string `json:"date"`
+		Remark          string `json:"remark"`
+		VoucherNo       string `json:"voucher_no"`
+		NetStock        int    `json:"net_stock"`
+		CompoundName    string `json:"compound_name"`
+		Scale           string `json:"scale"`
+		NumOfUnits      int    `json:"num_of_units"`
+		QuantityPerUnit int    `json:"quantity_per_unit"`
+	}
+
 	// --- Concurrent Data Fetching ---
 	var wg sync.WaitGroup
 	// Use buffered channels to avoid blocking if one goroutine finishes early
 	countCh := make(chan int, 1)
-	entriesCh := make(chan []utils.Entry, 1)
+	entriesCh := make(chan []Entry, 1)
 	// Channel to signal the first error encountered
 	errCh := make(chan error, 2) // Buffer size 2, one for each goroutine
 
@@ -162,7 +176,7 @@ WHERE 1=1`)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var entries []utils.Entry
+		var entries []Entry
 		var rows *sql.Rows // Declare rows outside retry loop
 
 		err := retry.Do(
@@ -179,7 +193,7 @@ WHERE 1=1`)
 				defer rows.Close() // Ensure rows are closed even if scanning fails below
 
 				for rows.Next() {
-					var e utils.Entry
+					var e Entry
 					// Scan into the Entry struct fields
 					// Note the change: Scan into e.Date which should be string or time.Time
 					// depending on utils.Entry definition. Assuming string for formatted_date.

@@ -3,12 +3,12 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	"github.com/google/uuid"
 	"github.com/martin-nath/chemical-ledger/db"
 	"github.com/martin-nath/chemical-ledger/utils"
 	"github.com/sirupsen/logrus"
@@ -17,25 +17,27 @@ import (
 const (
 	entryIncoming = "incoming"
 	entryOutgoing = "outgoing"
-	scaleMg       = "mg"
-	scaleMl       = "ml"
 )
 
 const (
-	Id_invalidMethod                        = "This action requires using the POST method."
-	Id_invalid_date_format                  = "Please provide the date in the format DD-MM-YYYY."
-	Id_req_body_decode_error                = "The data provided is not in the correct format."
-	Id_missingFields_or_inappropriate_value = "Please make sure all required information is filled in correctly."
-	Id_future_date_error                    = "The date cannot be in the future."
-	Id_date_conversion_error                = "There was an issue with the date provided."
-	Id_item_not_found                       = "The item requested could not be found."
-	Id_internal_server_error                = "Internal Server Error. Please try again later."
-	Id_stock_retrieval_error                = "There was a problem retrieving stock information. Please try again later."
-	Id_insufficient_stock                   = "The requested quantity is not available in stock."
-	Id_add_new_item_error                   = "There was a problem adding the new item. Please try again later."
-	Id_save_entry_details_error             = "There was a problem saving the entry details. Please try again later."
-	Id_save_changes_error                   = "A problem occurred while saving your changes. Please try again later."
-	Id_entry_inserted_successfully          = "Entry inserted successfully"
+	Id_invalidMethod                        = "This action only works when you send the information in a specific way. Please try again using the correct method."
+	Id_req_body_decode_error                = "Sorry, but we couldn't understand the information you sent. Could you please double-check it and try again?"
+	Id_missingFields_or_inappropriate_value = "Please make sure you've filled in all the necessary details and that they are correct."
+	Id_invalid_date_format                  = "The date needs to be in this format: day-month-year (like 01-05-2025)."
+	Id_future_date_error                    = "The date you entered can't be in the future. Please enter a valid date."
+	Id_date_conversion_error                = "We couldn't figure out the date you gave us. Could you check it and try again?"
+	Id_compound_check_error                 = "Something went wrong with checking the compound right now. Please try again in a little while."
+	Id_item_not_found                       = "We couldn't find the compound you were looking for."
+	Id_stock_retrieval_error                = "Sorry, we're having trouble getting the stock information right now. Please try again later."
+	Id_insufficient_stock                   = "We don't have enough of that item in stock to fulfill your request."
+	Id_add_new_item_error                   = "There was a problem recording the quantity. Please try again."
+	Id_save_entry_details_error             = "We couldn't save the details you entered. Please try again."
+	Id_update_subsequent_entries_error      = "We're having trouble updating the stock information. Please try again."
+	Id_record_transaction_error             = "We couldn't start saving this entry right now. Please try again later."
+	Id_commit_transaction_error             = "We couldn't finish saving this entry. Please try again later."
+	Id_entry_update_scan_error              = "Something went wrong while reading the updated stock information. Please try again later."
+	Id_entry_inserted_successfully          = "Great! Your entry has been saved."
+	Id_internal_server_error                = "Oops! Something went wrong on our end. Please try again later."
 )
 
 func InsertData(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +59,7 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 	logrus.Infof("Received request to insert data: %+v", entry)
 
 	// Validate entry fields early
-	if entry.CompoundName == "" || entry.QuantityPerUnit <= 0 || (entry.Scale != scaleMg && entry.Scale != scaleMl) || entry.NumOfUnits <= 0 || (entry.Type != entryIncoming && entry.Type != entryOutgoing) {
+	if entry.CompoundId == "" || entry.QuantityPerUnit <= 0 || entry.NumOfUnits <= 0 || (entry.Type != entryIncoming && entry.Type != entryOutgoing) {
 		utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{
 			Error: Id_missingFields_or_inappropriate_value,
 		})
@@ -91,25 +93,27 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 		logrus.Errorf("Error converting date '%s' to timestamp: %v", entry.Date, err)
 		return
 	}
+
 	logrus.Debugf("Parsed entry date to timestamp: %d", entryDate)
 
-	compoundID := utils.ToCamelCase(entry.CompoundName)
-	txnQuantity := entry.NumOfUnits * entry.QuantityPerUnit
+	var compoundExists bool
+	if err := db.Db.QueryRow("SELECT EXISTS(SELECT 1 FROM compound WHERE id = ?)", entry.CompoundId).Scan(&compoundExists); err != nil {
+		utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{
+			Error: Id_compound_check_error,
+		})
+		logrus.Errorf("Error checking if compound exists: %v", err)
+		return
+	}
 
-	var currentStock int
-	compoundCheckErr := retry.Do(func() error {
-		return db.Db.QueryRow("SELECT net_stock FROM entry WHERE compound_id = ? ORDER BY date DESC LIMIT 1", compoundID).Scan(&currentStock)
-	}, retry.Attempts(utils.MaxRetries), retry.Delay(utils.RetryDelay))
-	compoundNotFound := errors.Is(compoundCheckErr, sql.ErrNoRows)
-
-	// Handle outgoing transaction before starting the database transaction if compound is not found
-	if entry.Type == entryOutgoing && compoundNotFound {
+	if !compoundExists {
 		utils.JsonRes(w, http.StatusNotFound, &utils.Resp{
 			Error: Id_item_not_found,
 		})
-		logrus.Warnf("Compound '%s' not found for outgoing transaction.", compoundID)
+		logrus.Warnf("Compound '%s' not found.", entry.CompoundId)
 		return
 	}
+
+	txnQuantity := entry.NumOfUnits * entry.QuantityPerUnit
 
 	var dbTx *sql.Tx
 	dbErr := retry.Do(func() error {
@@ -117,6 +121,7 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 		dbTx, err = db.Db.Begin()
 		return err
 	}, retry.Attempts(utils.MaxRetries), retry.Delay(utils.RetryDelay))
+
 	if dbErr != nil {
 		utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{
 			Error: Id_internal_server_error,
@@ -124,46 +129,31 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 		logrus.Errorf("Error starting database transaction: %v", dbErr)
 		return
 	}
-	defer dbTx.Rollback() // Rollback will be called if commit doesn't happen
+
+	defer dbTx.Rollback()
+
+	currentStock := 0
 
 	if entry.Type == entryOutgoing {
-		if compoundCheckErr != nil && !errors.Is(compoundCheckErr, sql.ErrNoRows) {
-			utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{
-				Error: Id_stock_retrieval_error,
-			})
-			logrus.Errorf("Error retrieving current stock for compound '%s': %v", compoundID, compoundCheckErr)
-			return
-		}
-
 		if currentStock < txnQuantity {
 			utils.JsonRes(w, http.StatusNotAcceptable, &utils.Resp{
 				Error: Id_insufficient_stock,
 			})
-			logrus.Warnf("Insufficient stock for outgoing transaction of compound '%s'. Available: %d, Requested: %d", compoundID, currentStock, txnQuantity)
+			logrus.Warnf("Insufficient stock for outgoing transaction of compound '%s'. Available: %d, Requested: %d", entry.CompoundId, currentStock, txnQuantity)
 			return
 		}
 		currentStock -= txnQuantity
-		logrus.Debugf("Outgoing transaction: Compound '%s', Quantity: %d, Remaining Stock: %d", compoundID, txnQuantity, currentStock)
-	} else {
-		if compoundNotFound {
-			insertCompound := `INSERT INTO compound (id, name, scale) VALUES (?, ?, ?)`
-			_, err = dbTx.Exec(insertCompound, compoundID, entry.CompoundName, entry.Scale)
-			if err != nil {
-				utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{
-					Error: Id_add_new_item_error,
-				})
-				logrus.Errorf("Error inserting new compound '%s': %v", compoundID, err)
-				return
-			}
-			logrus.Infof("New compound '%s' added.", compoundID)
-		}
+		logrus.Debugf("Outgoing transaction: Compound '%s', Quantity: %d, Remaining Stock: %d", entry.CompoundId, txnQuantity, currentStock)
+	}
+
+	if entry.Type == entryIncoming {
 		currentStock += txnQuantity
-		logrus.Debugf("Incoming transaction: Compound '%s', Quantity: %d, New Stock: %d", compoundID, txnQuantity, currentStock)
+		logrus.Debugf("Incoming transaction: Compound '%s', Quantity: %d, New Stock: %d", entry.CompoundId, txnQuantity, currentStock)
 	}
 
 	// Generate IDs
-	quantityID := fmt.Sprintf("Q_%s_%d", compoundID, time.Now().UnixNano())
-	entryID := fmt.Sprintf("%s%s_%d", map[string]string{"incoming": "I", "outgoing": "O"}[entry.Type], compoundID, time.Now().UnixNano())
+	quantityID := fmt.Sprintf("Q_%s", uuid.NewString())
+	entryID := fmt.Sprintf("E_%s", uuid.NewString())
 
 	err = retry.Do(func() error {
 		_, err := dbTx.Exec(`
@@ -174,7 +164,7 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 		`,
 			quantityID, entry.NumOfUnits, entry.QuantityPerUnit,
-			entryID, entry.Type, entryDate, compoundID, entry.Remark, entry.VoucherNo, quantityID, currentStock,
+			entryID, entry.Type, entryDate, entry.CompoundId, entry.Remark, entry.VoucherNo, quantityID, currentStock,
 		)
 		return err
 	}, retry.Attempts(utils.MaxRetries), retry.Delay(utils.RetryDelay))
@@ -186,16 +176,20 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 		logrus.Errorf("Error during batch insert for entry '%s' and quantity '%s': %v", entryID, quantityID, err)
 		return
 	}
+
 	logrus.Debugf("Inserted quantity with ID '%s'", quantityID)
 	logrus.Infof("Entry inserted successfully with ID '%s'", entryID)
 
+	utils.UpdateSubSequentNetStock(dbTx, entryDate, entry.CompoundId, w)
+
 	if err := dbTx.Commit(); err != nil {
 		utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{
-			Error: Id_save_changes_error,
+			Error: Id_commit_transaction_error,
 		})
 		logrus.Errorf("Error committing database transaction: %v", err)
 		return
 	}
+
 	logrus.Debug("Database transaction committed successfully.")
 
 	utils.JsonRes(w, http.StatusCreated, &utils.Resp{

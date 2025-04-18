@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"net/http"
 	"os"
 
@@ -25,22 +24,16 @@ func main() {
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 
 	// Parse command-line flags
-	resetFlag := flag.Bool("reset", false, "Drop all tables before running migrations")
-	flag.Parse()
 
 	// Initialize the database
 	db.InitDB("./chemical_ledger.db")
 	defer db.Db.Close()
 
-	// Drop tables if the reset flag is set
-	if *resetFlag {
-		if err := migrate.DropTables(db.Db); err != nil {
-			logrus.Fatalf("Failed to drop tables: %v", err)
-		}
-		logrus.Info("Tables dropped successfully!")
+	if err := migrate.DropTables(db.Db); err != nil {
+		logrus.Fatalf("Failed to drop tables: %v", err)
 	}
+	logrus.Info("Tables dropped successfully!")
 
-	// Create tables if they don't exist
 	if err := migrate.CreateTables(db.Db); err != nil {
 		logrus.Fatalf("Failed to create tables: %v", err)
 	}
@@ -49,7 +42,7 @@ func main() {
 	// Set up routes
 	http.HandleFunc("/insert", handlers.InsertData) // POST /transaction
 	http.HandleFunc("/fetch", handlers.GetData)     // GET /transactions
-	http.HandleFunc("/update", handlers.UpdateEntryHandler)
+	http.HandleFunc("/update", handlers.UpdateData)
 
 	// Start the server
 	logrus.Info("Server is running on http://localhost:8080")

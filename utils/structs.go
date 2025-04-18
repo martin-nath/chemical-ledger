@@ -22,8 +22,7 @@ type Entry struct {
 	Remark          string `json:"remark"`
 	VoucherNo       string `json:"voucher_no"`
 	NetStock        int    `json:"net_stock"`
-	CompoundName    string `json:"compound_name"`
-	Scale           string `json:"scale"`
+	CompoundId      string `json:"compound_id"`
 	NumOfUnits      int    `json:"num_of_units"`
 	QuantityPerUnit int    `json:"quantity_per_unit"`
 }

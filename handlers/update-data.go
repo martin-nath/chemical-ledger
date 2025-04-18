@@ -83,9 +83,17 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 	}
 	defer dbTx.Commit()
 
-	var compoundIdValid bool
-	var oldCompoundId string
+	if entryDate == 0 {
+		if err = dbTx.QueryRow(`SELECT date FROM entry WHERE id = ?`, entry.ID).Scan(&entryDate); err != nil {
+			utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{
+				Error: "Sorry, we're having trouble getting the stock information right now. Please try again later.",
+			})
+			logrus.Errorf("Error retrieving entry date: %v", err)
+			return
+		}
+	}
 
+	var compoundIdValid bool
 	if entry.CompoundId != "" {
 		err = dbTx.QueryRow(`SELECT EXISTS(SELECT 1 FROM compound WHERE id = ?)`, entry.CompoundId).Scan(&compoundIdValid)
 		if err != nil {
@@ -95,26 +103,36 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 			logrus.Errorf("Error checking if compound exists: %v", err)
 			return
 		}
+	}
 
-		err = dbTx.QueryRow(`SELECT compound_id FROM entry where id = ?`, entry.ID).Scan(&oldCompoundId)
+	var compoundId string
+	err = dbTx.QueryRow(`SELECT compound_id FROM entry where id = ?`, entry.ID).Scan(&compoundId)
+	if err != nil {
+		utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{
+			Error: "Sorry, we're having trouble getting the stock information right now. Please try again later.",
+		})
+		logrus.Errorf("Error retrieving old entry type: %v", err)
+		return
+	}
+
+	var oldQuantityId string
+	if entry.QuantityPerUnit != 0 || entry.NumOfUnits != 0 {
+		err = dbTx.QueryRow(`SELECT quantity_id FROM entry where id = ?`, entry.ID).Scan(&oldQuantityId)
 		if err != nil {
 			utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{
 				Error: "Sorry, we're having trouble getting the stock information right now. Please try again later.",
 			})
-			logrus.Errorf("Error retrieving old entry type: %v", err)
+			logrus.Errorf("Error retrieving old quantity id: %v", err)
 			return
 		}
 	}
-	
-	var oldQuantityId string
-	// TODO: get old quantity id from db
 
 	updateQueryBuilder := strings.Builder{}
 
 	switch {
 	case entry.Type != "":
 		updateQueryBuilder.WriteString(fmt.Sprintf("UPDATE entry SET type = '%s' WHERE id = '%s';\n", entry.Type, entry.ID))
-	case entryDate != 0:
+	case entry.Date != "":
 		updateQueryBuilder.WriteString(fmt.Sprintf("UPDATE entry SET date = '%d' WHERE id = '%s';\n", entryDate, entry.ID))
 	case entry.QuantityPerUnit != 0:
 		updateQueryBuilder.WriteString(fmt.Sprintf("UPDATE quantity SET quantity_per_unit = '%d' WHERE id = '%s';\n", entry.QuantityPerUnit, oldQuantityId))
@@ -144,13 +162,13 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 	wg := sync.WaitGroup{}
 	if compoundIdValid {
 		wg.Add(1)
-		go func(dbTx *sql.Tx, entryDate int64, oldCompoundId string, w http.ResponseWriter) {
+		go func(dbTx *sql.Tx, entryDate int64, newCompoundId string, w http.ResponseWriter) {
 			defer wg.Done()
-			utils.UpdateSubSequentNetStock(dbTx, entryDate, oldCompoundId, w)
-		}(dbTx, entryDate, oldCompoundId, w)
+			utils.UpdateSubSequentNetStock(dbTx, entryDate, newCompoundId, w)
+		}(dbTx, entryDate, entry.CompoundId, w)
 	}
 
-	utils.UpdateSubSequentNetStock(dbTx, entryDate, entry.CompoundId, w)
+	utils.UpdateSubSequentNetStock(dbTx, entryDate, compoundId, w)
 
 	wg.Wait()
 

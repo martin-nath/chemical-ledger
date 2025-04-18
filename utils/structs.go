@@ -16,7 +16,7 @@ type Filters struct {
 }
 
 type Entry struct {
-	ID              string `json:"id"`
+	ID              string `json:"entry_id"`
 	Type            string `json:"type"`
 	Date            string  `json:"date"`
 	Remark          string `json:"remark"`

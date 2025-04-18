@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -55,9 +54,8 @@ func JsonRes(w http.ResponseWriter, status int, resObj *Resp) {
 	json.NewEncoder(w).Encode(resObj)
 }
 
-func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, w http.ResponseWriter, wg ...*sync.WaitGroup) {
+func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, w http.ResponseWriter) {
 	var previousStock int
-	var actualWg sync.WaitGroup
 	err := dbTx.QueryRow("SELECT net_stock FROM entry WHERE compound_id = ? AND date < ? ORDER BY date DESC LIMIT 1", compoundId, entryDate).Scan(&previousStock)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		JsonRes(w, http.StatusInternalServerError, &Resp{
@@ -140,5 +138,4 @@ func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, 
 		}
 		logrus.Debugf("Updated net stock for subsequent entries of compound '%s'", compoundId)
 	}
-	actualWg.Done()
 }

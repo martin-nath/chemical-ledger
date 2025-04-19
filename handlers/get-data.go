@@ -1,13 +1,11 @@
 package handlers
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/avast/retry-go/v4"
 	"github.com/martin-nath/chemical-ledger/db"
@@ -103,109 +101,84 @@ WHERE 1=1`)
 	logrus.Debugf("Data Query: %s, Args: %v", queryStr, filterArgs)
 	logrus.Debugf("Count Query: %s, Args: %v", countQueryStr, filterArgs)
 
-	// TODO: Remove the following go routines that are already written
-	var wg sync.WaitGroup
-	countCh := make(chan int, 1)
-	entriesCh := make(chan []utils.GetEntry, 1)
-	errCh := make(chan error, 2)
+	var count int
+	err := retry.Do(
+		func() error {
+			return db.Db.QueryRowContext(ctx, countQueryStr, filterArgs...).Scan(&count)
+		},
+		retry.Attempts(utils.MaxRetries+1),
+		retry.Delay(utils.RetryDelay),
+		retry.Context(ctx),
+	)
+	if err != nil {
+		logrus.Errorf("Error executing count query: %v", err)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		var count int
-		err := retry.Do(
-			func() error {
-				return db.Db.QueryRowContext(ctx, countQueryStr, filterArgs...).Scan(&count)
-			},
-			retry.Attempts(utils.MaxRetries+1),
-			retry.Delay(utils.RetryDelay),
-			retry.Context(ctx),
-		)
-		if err != nil {
-			select {
-			case errCh <- fmt.Errorf("error executing count query: %w", err):
-			default:
-			}
-			return
-		}
-		countCh <- count
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		// TODO: Remove the need of append in this array
-		entries := []utils.GetEntry{}
-		var rows *sql.Rows
-
-		err := retry.Do(
-			func() error {
-				var queryErr error
-				rows, queryErr = db.Db.QueryContext(ctx, queryStr, filterArgs...)
-				if queryErr != nil {
-					return queryErr
-				}
-				defer rows.Close()
-
-				for rows.Next() {
-					var e utils.GetEntry
-					scanErr := rows.Scan(
-						&e.ID, &e.Type, &e.Date,
-						&e.Remark, &e.VoucherNo, &e.NetStock,
-						&e.CompoundName, &e.Scale,
-						&e.NumOfUnits, &e.QuantityPerUnit,
-					)
-					if scanErr != nil {
-						return fmt.Errorf("error scanning data row: %w", scanErr)
-					}
-					entries = append(entries, e)
-				}
-				if err := rows.Err(); err != nil {
-					return fmt.Errorf("error during rows iteration: %w", err)
-				}
-				return nil
-			},
-			retry.Attempts(utils.MaxRetries+1),
-			retry.Delay(utils.RetryDelay),
-			retry.Context(ctx),
-		)
-
-		if err != nil {
-			select {
-			case errCh <- fmt.Errorf("error executing data query: %w", err):
-			default:
-			}
-			return
-		}
-
-		entriesCh <- entries
-	}()
-
-	wg.Wait()
-	close(countCh)
-	close(entriesCh)
-	close(errCh)
-
-	firstErr := <-errCh
-	if firstErr != nil {
-		logrus.Errorf("Error fetching data: %v", firstErr)
-		if ctx.Err() == context.Canceled || ctx.Err() == context.DeadlineExceeded {
-			http.Error(w, `{"error": "Request cancelled or timed out."}`, http.StatusServiceUnavailable)
-		} else {
-			http.Error(w, `{"error": "Failed to retrieve data. Please try again later."}`, http.StatusInternalServerError)
-		}
+		// TODO: use an appropriate error message
+		utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{Error: utils.Stock_retrieval_error})
 		return
 	}
 
-	totalCount := <-countCh
-	entriesResult := <-entriesCh
+	entries := make([]utils.GetEntry, count)
+	i := 0
+	var rows *sql.Rows
 
-	logrus.Infof("Successfully retrieved %d entries (total matching count: %d).", len(entriesResult), totalCount)
+	err = retry.Do(
+		func() error {
+			var queryErr error
+			rows, queryErr = db.Db.QueryContext(ctx, queryStr, filterArgs...)
+			if queryErr != nil {
+				return queryErr
+			}
+			defer rows.Close()
+
+			for rows.Next() {
+				var e utils.GetEntry
+				scanErr := rows.Scan(
+					&e.ID, &e.Type, &e.Date,
+					&e.Remark, &e.VoucherNo, &e.NetStock,
+					&e.CompoundName, &e.Scale,
+					&e.NumOfUnits, &e.QuantityPerUnit,
+				)
+				if scanErr != nil {
+					return fmt.Errorf("error scanning data row: %w", scanErr)
+				}
+				entries[i] = e
+				i++
+			}
+			if err := rows.Err(); err != nil {
+				return fmt.Errorf("error during rows iteration: %w", err)
+			}
+			return nil
+		},
+		retry.Attempts(utils.MaxRetries+1),
+		retry.Delay(utils.RetryDelay),
+		retry.Context(ctx),
+	)
+
+	if err != nil {
+		logrus.Errorf("Error executing data query: %v", err)
+
+		// TODO: use an appropriate error message
+		utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{Error: utils.Stock_retrieval_error})
+		return
+	}
+
+	// firstErr := <-errCh
+	// if firstErr != nil {
+	// 	logrus.Errorf("Error fetching data: %v", firstErr)
+	// 	if ctx.Err() == context.Canceled || ctx.Err() == context.DeadlineExceeded {
+	// 		http.Error(w, `{"error": "Request cancelled or timed out."}`, http.StatusServiceUnavailable)
+	// 	} else {
+	// 		http.Error(w, `{"error": "Failed to retrieve data. Please try again later."}`, http.StatusInternalServerError)
+	// 	}
+	// 	return
+	// }
+
+	logrus.Infof("Successfully retrieved %d entries (total matching count: %d).", len(entries), count)
 
 	response := map[string]interface{}{
-		"total":   totalCount,
-		"results": entriesResult,
+		"total":   count,
+		"results": entries,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

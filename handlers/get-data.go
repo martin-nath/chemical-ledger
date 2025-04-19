@@ -18,13 +18,11 @@ import (
 func GetData(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet) // Inform client which method is allowed
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		// Consistently use JSON for error responses
-		fmt.Fprint(w, `{"error": "Method Not Allowed. Please use GET."}`)
+		utils.JsonRes(w, http.StatusMethodNotAllowed, &utils.Resp{
+			Error: utils.InvalidMethod,
+		})
 		return
 	}
-
 	// Use request context for cancellation propagation
 	ctx := r.Context()
 

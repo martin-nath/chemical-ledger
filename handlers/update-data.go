@@ -14,18 +14,19 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// here messges as const
 
 func UpdateData(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		utils.JsonRes(w, http.StatusMethodNotAllowed, &utils.Resp{
+			Error: utils.InvalidMethod,
+		})
 		return
 	}
 
 	var entry utils.Entry
 	if err := json.NewDecoder(r.Body).Decode(&entry); err != nil {
 		utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{
-			Error: Id_req_body_decode_error,
+			Error: utils.Req_body_decode_error,
 		})
 		logrus.Errorf("Error decoding request body: %v", err)
 		return
@@ -35,7 +36,7 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 
 	if (entry.Type != "" && entry.Type != entryIncoming && entry.Type != entryOutgoing) || entry.ID == "" || entry.QuantityPerUnit < 0 || entry.NumOfUnits < 0 {
 		utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{
-			Error: Id_missingFields_or_inappropriate_value,
+			Error: utils.MissingFields_or_inappropriate_value,
 		})
 		logrus.Warn("Missing or invalid required fields in the request.")
 		return
@@ -47,7 +48,7 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 		entryDate, err = utils.UnixTimestamp(entry.Date)
 		if err != nil {
 			utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{
-				Error: Id_invalid_date_format,
+				Error: utils.Invalid_date_format,
 			})
 			logrus.Warnf("Invalid date format provided: %s, error: %v", entry.Date, err)
 			return
@@ -56,7 +57,7 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 		parsedDate, err := time.Parse("02-01-2006", entry.Date)
 		if err != nil {
 			utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{
-				Error: Id_invalid_date_format,
+				Error: utils.Invalid_date_format,
 			})
 			logrus.Warnf("Invalid date format provided: %s, error: %v", entry.Date, err)
 			return
@@ -64,7 +65,7 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 
 		if parsedDate.After(time.Now()) {
 			utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{
-				Error: Id_future_date_error,
+				Error: utils.Future_date_error,
 			})
 			logrus.Warnf("Future date provided: %s", entry.Date)
 			return

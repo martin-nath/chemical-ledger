@@ -18,5 +18,6 @@ const (
 	Commit_transaction_error             = "We were unable to finalize saving this entry. Please try again later."
 	Entry_update_scan_error              = "An error occurred while reading updated stock information. Please try again later."
 	Entry_inserted_successfully          = "Your entry has been successfully saved."
+	Entry_updated_successfully           = "Entry updated successfully."
 	Internal_server_error                = "A system error has occurred. Please try again later."
 )

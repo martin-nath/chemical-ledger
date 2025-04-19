@@ -14,18 +14,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func ToCamelCase(s string) string {
-	words := strings.Fields(s)
-	for i, w := range words {
-		words[i] = strings.ToLower(w)
-		if i == 0 {
-			continue
-		}
-		words[i] = strings.ToUpper(words[i][0:1]) + w[1:]
-	}
-	return strings.Join(words, "")
-}
-
 func UnixTimestamp(dateStr string) (int64, error) {
 	date, err := time.Parse("02-01-2006", dateStr)
 	if err != nil {
@@ -57,7 +45,7 @@ func JsonReq(r *http.Request, dst interface{}, w http.ResponseWriter) error {
 	return nil
 }
 
-// Updates the net stock of subsequent entries for a given compound from the given date till today. If any errors occur, it will return an error and write the error message to the response writer.
+// Updates the net stock of subsequent entries for a given compound from the given date till today.
 func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, w http.ResponseWriter) error {
 	var previousStock int
 	err := dbTx.QueryRow("SELECT net_stock FROM entry WHERE compound_id = ? AND date < ? ORDER BY date DESC LIMIT 1", compoundId, entryDate).Scan(&previousStock)
@@ -72,10 +60,8 @@ func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, 
 			e.id AS entry_id,
 			e.type AS entry_type,
 			q.num_of_units * q.quantity_per_unit AS quantity,
-			e.date AS entry_date,
-			e.net_stock AS current_net_stock
+			e.date AS entry_date
 		FROM entry e
-		JOIN compound c ON e.compound_id = c.id
 		JOIN quantity q ON e.quantity_id = q.id
 		WHERE
 			e.compound_id = ? AND e.date >= ?
@@ -92,13 +78,12 @@ func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, 
 	var updateQueriesBuilder strings.Builder
 	for rows.Next() {
 		var entryUpdate struct {
-			EntryID         string
-			EntryType       string
-			Quantity        int
-			EntryDate       int64
-			CurrentNetStock int
+			EntryID   string
+			EntryType string
+			Quantity  int
+			EntryDate int64
 		}
-		err := rows.Scan(&entryUpdate.EntryID, &entryUpdate.EntryType, &entryUpdate.Quantity, &entryUpdate.EntryDate, &entryUpdate.CurrentNetStock)
+		err := rows.Scan(&entryUpdate.EntryID, &entryUpdate.EntryType, &entryUpdate.Quantity, &entryUpdate.EntryDate)
 		if err != nil {
 			JsonRes(w, http.StatusInternalServerError, &Resp{Error: Entry_update_scan_error})
 			logrus.Errorf("Error reading entry details while updating stock: %v", err)
@@ -118,7 +103,6 @@ func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, 
 		}
 
 		updateQueriesBuilder.WriteString(fmt.Sprintf("UPDATE entry SET net_stock = %d WHERE id = '%s';\n", previousStock, entryUpdate.EntryID))
-
 	}
 
 	updateQueries := updateQueriesBuilder.String()
@@ -134,6 +118,7 @@ func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, 
 
 	return nil
 }
+
 
 // Begins a database transaction. If any errors occur, it will return an error and write the error message to the response writer.
 func BeginDbTx(w http.ResponseWriter) (*sql.Tx, error) {

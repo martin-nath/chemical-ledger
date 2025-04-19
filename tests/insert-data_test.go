@@ -15,6 +15,10 @@ import (
 	"github.com/martin-nath/chemical-ledger/utils"
 )
 
+// TODO: Fix the tests
+// TODO: Add tests for the update-data.go file
+// TODO: Add tests for the get-data.go file
+
 func setupTestDB() {
 	// Initialize in-memory database
 	db.InitDB(":memory:")
@@ -75,12 +79,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Valid Incoming Transaction - New Compound",
 				requestBody: map[string]interface{}{
-					"type":              "incoming",
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "12345",
-					"compound_id":     "sodiumChloride",
-					"scale":             "mg",
+					"type":        utils.TypeIncoming,
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
+					"compound_id": "sodiumChloride",
+					// "scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
@@ -89,13 +93,13 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Missing Required Field - QuantityPerUnit",
 				requestBody: map[string]interface{}{
-					"type":          "incoming",
-					"date":          pastDate,
-					"remark":        "Test Remark",
-					"voucher_no":    "12345",
+					"type":        utils.TypeIncoming,
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
 					"compound_id": "benzene",
-					"scale":         "mg",
-					"num_of_units":  10,
+					// "scale":        "mg",
+					"num_of_units": 10,
 					// Missing "quantity_per_unit"
 				},
 				expectedStatus: http.StatusBadRequest,
@@ -104,12 +108,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Invalid Date Format",
 				requestBody: map[string]interface{}{
-					"type":              "incoming",
-					"date":              "15042025", // Invalid date format
-					"remark":            "Test Remark",
-					"voucher_no":        "12345",
-					"compound_id":     "benzene",
-					"scale":             "mg",
+					"type":        utils.TypeIncoming,
+					"date":        "15042025", // Invalid date format
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
+					"compound_id": "benzene",
+					// "scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
@@ -119,12 +123,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Invalid Date - Future Date",
 				requestBody: map[string]interface{}{
-					"type":              "incoming",
-					"date":              time.Now().AddDate(0, 1, 0).Format("02-01-2006"), // Future date
-					"remark":            "Test Remark",
-					"voucher_no":        "12345",
-					"compound_id":     "benzene",
-					"scale":             "mg",
+					"type":        utils.TypeIncoming,
+					"date":        time.Now().AddDate(0, 1, 0).Format("02-01-2006"), // Future date
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
+					"compound_id": "benzene",
+					// "scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
@@ -134,11 +138,11 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Invalid Scale",
 				requestBody: map[string]interface{}{
-					"type":              "incoming",
+					"type":              utils.TypeIncoming,
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
-					"compound_id":     "benzene",
+					"compound_id":       "benzene",
 					"scale":             "kg", // Invalid scale
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
@@ -149,12 +153,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Invalid Type",
 				requestBody: map[string]interface{}{
-					"type":              "transfer", // Invalid type
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "12345",
-					"compound_id":     "benzene",
-					"scale":             "mg",
+					"type":        "transfer", // Invalid type
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
+					"compound_id": "benzene",
+					// "scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
@@ -164,12 +168,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Zero QuantityPerUnit",
 				requestBody: map[string]interface{}{
-					"type":              "incoming",
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "12345",
-					"compound_id":     "benzene",
-					"scale":             "mg",
+					"type":        utils.TypeIncoming,
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
+					"compound_id": "benzene",
+					// "scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 0,
 				},
@@ -179,12 +183,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Zero NumOfUnits",
 				requestBody: map[string]interface{}{
-					"type":              "incoming",
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "12345",
-					"compound_id":     "benzene",
-					"scale":             "mg",
+					"type":        utils.TypeIncoming,
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
+					"compound_id": "benzene",
+					// "scale":             "mg",
 					"num_of_units":      0,
 					"quantity_per_unit": 5,
 				},
@@ -200,12 +204,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Invalid Request Method - GET",
 				requestBody: map[string]interface{}{
-					"type":              "incoming",
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "12345",
-					"compound_id":     "benzene",
-					"scale":             "mg",
+					"type":        utils.TypeIncoming,
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
+					"compound_id": "benzene",
+					// "scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
@@ -215,12 +219,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Case Sensitivity - Invalid Scale (Uppercase)",
 				requestBody: map[string]interface{}{
-					"type":              "incoming",
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "12345",
-					"compound_id":     "benzene",
-					"scale":             "MG", // Uppercase scale
+					"type":        utils.TypeIncoming,
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
+					"compound_id": "benzene",
+					// "scale":             "MG", // Uppercase scale
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
@@ -230,12 +234,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Case Sensitivity - Invalid Type (Uppercase)",
 				requestBody: map[string]interface{}{
-					"type":              "Incoming", // Uppercase type
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "12345",
-					"compound_id":     "benzene",
-					"scale":             "mg",
+					"type":        "Incoming", // Uppercase type
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
+					"compound_id": "benzene",
+					// "scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
@@ -245,12 +249,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Empty Remark and Voucher Number",
 				requestBody: map[string]interface{}{
-					"type":              "incoming",
-					"date":              pastDate,
-					"remark":            "",
-					"voucher_no":        "",
-					"compound_id":     "benzene",
-					"scale":             "mg",
+					"type":        utils.TypeIncoming,
+					"date":        pastDate,
+					"remark":      "",
+					"voucher_no":  "",
+					"compound_id": "benzene",
+					// "scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
@@ -289,14 +293,12 @@ func TestInsertData(t *testing.T) {
 		// Helper function to insert initial stock
 		insertInitialStock := func() {
 			_, err := db.Db.Exec(`
-				INSERT INTO compound (id, name, scale) VALUES (?, ?, ?);
 				INSERT INTO quantity (id, num_of_units, quantity_per_unit) VALUES (?, ?, ?);
 				INSERT INTO entry (id, type, date, compound_id, remark, voucher_no, quantity_id, net_stock)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 			`,
-				"benzene", "benzene", "mg",
 				"Q_benzene_1", 10, 5,
-				"E_benzene_1", "incoming", pastDate, "benzene", "Initial Stock", "12345", "Q_benzene_1", 50,
+				"E_benzene_1", utils.TypeIncoming, pastDate, "benzene", "Initial Stock", "12345", "Q_benzene_1", 50,
 			)
 			if err != nil {
 				t.Fatalf("Failed to insert initial stock: %v", err)
@@ -328,12 +330,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Valid Outgoing Transaction",
 				requestBody: map[string]interface{}{
-					"type":              "outgoing",
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "12345",
-					"compound_id":     "benzene",
-					"scale":             "mg",
+					"type":        utils.TypeOutgoing,
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
+					"compound_id": "benzene",
+					// "scale":             "mg",
 					"num_of_units":      5,
 					"quantity_per_unit": 5,
 				},
@@ -342,12 +344,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Outgoing Transaction with Exactly Enough Stock",
 				requestBody: map[string]interface{}{
-					"type":              "outgoing",
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "12345",
-					"compound_id":     "benzene",
-					"scale":             "mg",
+					"type":        utils.TypeOutgoing,
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
+					"compound_id": "benzene",
+					// "scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
@@ -356,12 +358,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Outgoing Transaction with Insufficient Stock",
 				requestBody: map[string]interface{}{
-					"type":              "outgoing",
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "12345",
-					"compound_id":     "benzene",
-					"scale":             "mg",
+					"type":        utils.TypeOutgoing,
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
+					"compound_id": "benzene",
+					// "scale":             "mg",
 					"num_of_units":      11,
 					"quantity_per_unit": 5,
 				},
@@ -371,12 +373,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Outgoing Transaction for Nonexistent Compound",
 				requestBody: map[string]interface{}{
-					"type":              "outgoing",
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "12345",
-					"compound_id":     "NonexistentCompound",
-					"scale":             "mg",
+					"type":        utils.TypeOutgoing,
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
+					"compound_id": "NonexistentCompound",
+					// "scale":             "mg",
 					"num_of_units":      5,
 					"quantity_per_unit": 5,
 				},
@@ -386,12 +388,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Incoming Transaction for Existing Compound",
 				requestBody: map[string]interface{}{
-					"type":              "incoming",
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "67890",
-					"compound_id":     "benzene",
-					"scale":             "mg",
+					"type":        utils.TypeIncoming,
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "67890",
+					"compound_id": "benzene",
+					// "scale":             "mg",
 					"num_of_units":      5,
 					"quantity_per_unit": 10,
 				},
@@ -400,12 +402,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Incoming Transaction for Existing Compound with Different Scale (Should Work)",
 				requestBody: map[string]interface{}{
-					"type":              "incoming",
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "13579",
-					"compound_id":     "benzene",
-					"scale":             "ml", // Different scale, but compound already exists with 'mg' - this might be a design consideration, current logic allows it.
+					"type":        utils.TypeIncoming,
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "13579",
+					"compound_id": "benzene",
+					// "scale":             "ml", // Different scale, but compound already exists with 'mg' - this might be a design consideration, current logic allows it.
 					"num_of_units":      2,
 					"quantity_per_unit": 25,
 				},
@@ -414,12 +416,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Incoming Transaction for New Compound",
 				requestBody: map[string]interface{}{
-					"type":              "incoming",
-					"date":              pastDate,
-					"remark":            "New Compound Added",
-					"voucher_no":        "24680",
-					"compound_id":     "sodiumChloride",
-					"scale":             "ml",
+					"type":        utils.TypeIncoming,
+					"date":        pastDate,
+					"remark":      "New Compound Added",
+					"voucher_no":  "24680",
+					"compound_id": "sodiumChloride",
+					// "scale":             "ml",
 					"num_of_units":      3,
 					"quantity_per_unit": 100,
 				},
@@ -428,12 +430,12 @@ func TestInsertData(t *testing.T) {
 			{
 				name: "Outgoing Transaction with Exactly Enough Stock - Boundary",
 				requestBody: map[string]interface{}{
-					"type":              "outgoing",
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "12345",
-					"compound_id":     "benzene",
-					"scale":             "mg",
+					"type":        utils.TypeOutgoing,
+					"date":        pastDate,
+					"remark":      "Test Remark",
+					"voucher_no":  "12345",
+					"compound_id": "benzene",
+					// "scale":             "mg",
 					"num_of_units":      5,
 					"quantity_per_unit": 10, // Total withdrawal of 5 * 10 = 50, which is the initial stock
 				},

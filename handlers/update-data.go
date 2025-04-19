@@ -14,6 +14,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// TODO: fix the code structure of this file, make it similar to the insert-data.go file
+// TODO: Reuse functions, if it can be
+// TODO: Check all the responses and make sure they are correct in its situations
 
 func UpdateData(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
@@ -34,7 +37,7 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 
 	logrus.Infof("Received request to update data: %+v", entry)
 
-	if (entry.Type != "" && entry.Type != entryIncoming && entry.Type != entryOutgoing) || entry.ID == "" || entry.QuantityPerUnit < 0 || entry.NumOfUnits < 0 {
+	if (entry.Type != "" && entry.Type != utils.TypeIncoming && entry.Type != utils.TypeOutgoing) || entry.ID == "" || entry.QuantityPerUnit < 0 || entry.NumOfUnits < 0 {
 		utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{
 			Error: utils.MissingFields_or_inappropriate_value,
 		})

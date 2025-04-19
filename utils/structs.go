@@ -18,6 +18,7 @@ type Filters struct {
 type Entry struct {
 	ID              string `json:"entry_id"`
 	Type            string `json:"type"`
+	Scale           string `json:"scale"`
 	Date            string  `json:"date"`
 	Remark          string `json:"remark"`
 	VoucherNo       string `json:"voucher_no"`

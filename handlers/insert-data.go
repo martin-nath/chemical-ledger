@@ -17,28 +17,9 @@ import (
 const (
 	entryIncoming = "incoming"
 	entryOutgoing = "outgoing"
+	scaleMg = "mg"
+	scaleMl = "ml"
 )
-
-// const (
-// 	Id_invalidMethod                        = "This action only works when you send the information in a specific way. Please try again using the correct method."
-// 	Id_req_body_decode_error                = "Sorry, but we couldn't understand the information you sent. Could you please double-check it and try again?"
-// 	Id_missingFields_or_inappropriate_value = "Please make sure you've filled in all the necessary details and that they are correct."
-// 	Id_invalid_date_format                  = "The date needs to be in this format: day-month-year (like 01-05-2025)."
-// 	Id_future_date_error                    = "The date you entered can't be in the future. Please enter a valid date."
-// 	Id_date_conversion_error                = "We couldn't figure out the date you gave us. Could you check it and try again?"
-// 	Id_compound_check_error                 = "Something went wrong with checking the compound right now. Please try again in a little while."
-// 	Id_item_not_found                       = "We couldn't find the compound you were looking for."
-// 	Id_stock_retrieval_error                = "Sorry, we're having trouble getting the stock information right now. Please try again later."
-// 	Id_insufficient_stock                   = "We don't have enough of that item in stock to fulfill your request."
-// 	Id_add_new_item_error                   = "There was a problem recording the quantity. Please try again."
-// 	Id_save_entry_details_error             = "We couldn't save the details you entered. Please try again."
-// 	Id_update_subsequent_entries_error      = "We're having trouble updating the stock information. Please try again."
-// 	Id_record_transaction_error             = "We couldn't start saving this entry right now. Please try again later."
-// 	Id_commit_transaction_error             = "We couldn't finish saving this entry. Please try again later."
-// 	Id_entry_update_scan_error              = "Something went wrong while reading the updated stock information. Please try again later."
-// 	Id_entry_inserted_successfully          = "Great! Your entry has been saved."
-// 	Id_internal_server_error                = "Oops! Something went wrong on our end. Please try again later."
-// )
 
 func InsertData(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -57,7 +38,7 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 	}
 	logrus.Infof("Received request to insert data: %+v", entry)
 
-	if entry.CompoundId == "" || entry.QuantityPerUnit <= 0 || entry.NumOfUnits <= 0 || (entry.Type != entryIncoming && entry.Type != entryOutgoing) {
+	if entry.CompoundId == "" || entry.QuantityPerUnit <= 0 || entry.NumOfUnits <= 0 || (entry.Scale != scaleMg && entry.Scale != scaleMl) ||(entry.Type != entryIncoming && entry.Type != entryOutgoing) {
 		utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{
 			Error: utils.MissingFields_or_inappropriate_value,
 		})

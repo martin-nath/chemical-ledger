@@ -37,6 +37,19 @@ type Entry struct {
 	QuantityPerUnit int    `json:"quantity_per_unit"`
 }
 
+type GetEntry struct {
+	ID              string `json:"id"`
+	Type            string `json:"type"`
+	Date            string `json:"date"`
+	Remark          string `json:"remark"`
+	VoucherNo       string `json:"voucher_no"`
+	NetStock        int    `json:"net_stock"`
+	CompoundName    string `json:"compound_name"`
+	Scale           string `json:"scale"`
+	NumOfUnits      int    `json:"num_of_units"`
+	QuantityPerUnit int    `json:"quantity_per_unit"`
+}
+
 // UpdatedEntry represents the fields that can be updated for an entry.
 type UpdatedEntry struct {
 	Type            string `json:"type,omitempty"`

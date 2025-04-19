@@ -103,23 +103,10 @@ WHERE 1=1`)
 	logrus.Debugf("Data Query: %s, Args: %v", queryStr, filterArgs)
 	logrus.Debugf("Count Query: %s, Args: %v", countQueryStr, filterArgs)
 
-	type Entry struct {
-		ID              string `json:"id"`
-		Type            string `json:"type"`
-		Date            string `json:"date"`
-		Remark          string `json:"remark"`
-		VoucherNo       string `json:"voucher_no"`
-		NetStock        int    `json:"net_stock"`
-		CompoundName    string `json:"compound_name"`
-		Scale           string `json:"scale"`
-		NumOfUnits      int    `json:"num_of_units"`
-		QuantityPerUnit int    `json:"quantity_per_unit"`
-	}
-
 	// TODO: Remove the following go routines that are already written
 	var wg sync.WaitGroup
 	countCh := make(chan int, 1)
-	entriesCh := make(chan []Entry, 1)
+	entriesCh := make(chan []utils.GetEntry, 1)
 	errCh := make(chan error, 2)
 
 	wg.Add(1)
@@ -149,7 +136,7 @@ WHERE 1=1`)
 		defer wg.Done()
 
 		// TODO: Remove the need of append in this array
-		entries := []Entry{}
+		entries := []utils.GetEntry{}
 		var rows *sql.Rows
 
 		err := retry.Do(
@@ -162,7 +149,7 @@ WHERE 1=1`)
 				defer rows.Close()
 
 				for rows.Next() {
-					var e Entry
+					var e utils.GetEntry
 					scanErr := rows.Scan(
 						&e.ID, &e.Type, &e.Date,
 						&e.Remark, &e.VoucherNo, &e.NetStock,

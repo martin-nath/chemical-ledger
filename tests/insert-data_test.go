@@ -426,9 +426,9 @@ func TestInsertData(t *testing.T) {
 				expectedError:  utils.MissingFields_or_inappropriate_value,
 			},
 			{
-				name: "Lowercase Type",
+				name: "Uppercase Type",
 				requestBody: map[string]any{
-					"type":              strings.ToLower(utils.TypeIncoming),
+					"type":              strings.ToUpper(utils.TypeIncoming),
 					"date":              pastDate,
 					"remark":            "Case Test",
 					"voucher_no":        "123",

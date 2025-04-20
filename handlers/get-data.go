@@ -51,6 +51,33 @@ func GetData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var fromDate int64
+	var toDate int64
+	var err error
+	if filters.FromDate != "" {
+		fromDate, err = utils.UnixTimestamp(filters.FromDate)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, `{"error": "Invalid 'fromDate' filter. Please use a valid date in the format '02-01-2006'."}`)
+			logrus.Warnf("Invalid 'fromDate' filter provided: %s", filters.FromDate)
+			return
+		}
+		filters.FromDate = fmt.Sprintf("%d", fromDate)
+	}
+
+	if filters.ToDate != "" {
+		toDate, err = utils.UnixTimestamp(filters.ToDate)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, `{"error": "Invalid 'toDate' filter. Please use a valid date in the format '02-01-2006'."}`)
+			logrus.Warnf("Invalid 'toDate' filter provided: %s", filters.ToDate)
+			return
+		}
+		filters.ToDate = fmt.Sprintf("%d", toDate)
+	}
+
 	var queryBuilder, countQueryBuilder strings.Builder
 	filterArgs := make([]any, 0)
 
@@ -83,14 +110,14 @@ WHERE 1=1`)
 		filterArgs = append(filterArgs, filters.CompoundName)
 	}
 	if filters.FromDate != "" {
-		queryBuilder.WriteString(" AND e.date >= unixepoch(?)")
-		countQueryBuilder.WriteString(" AND e.date >= unixepoch(?)")
-		filterArgs = append(filterArgs, filters.FromDate)
+		queryBuilder.WriteString(" AND e.date >= ?")
+		countQueryBuilder.WriteString(" AND e.date >= ?")
+		filterArgs = append(filterArgs, fromDate)
 	}
 	if filters.ToDate != "" {
-		queryBuilder.WriteString(" AND e.date < unixepoch(?, '+1 day')")
-		countQueryBuilder.WriteString(" AND e.date < unixepoch(?, '+1 day')")
-		filterArgs = append(filterArgs, filters.ToDate)
+		queryBuilder.WriteString(" AND e.date < ?")
+		countQueryBuilder.WriteString(" AND e.date < ?")
+		filterArgs = append(filterArgs, toDate)
 	}
 
 	queryBuilder.WriteString(" ORDER BY e.date DESC")
@@ -102,7 +129,7 @@ WHERE 1=1`)
 	logrus.Debugf("Count Query: %s, Args: %v", countQueryStr, filterArgs)
 
 	var count int
-	err := retry.Do(
+	err = retry.Do(
 		func() error {
 			return db.Db.QueryRowContext(ctx, countQueryStr, filterArgs...).Scan(&count)
 		},

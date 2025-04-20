@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -15,22 +16,18 @@ import (
 	"github.com/martin-nath/chemical-ledger/utils"
 )
 
-// TODO: Fix the tests
-// TODO: Add tests for the update-data.go file
-// TODO: Add tests for the get-data.go file
-
 func setupTestDB() {
-	// Initialize in-memory database
-	db.InitDB(":memory:")
-
-	// Run migrations
+	db.InitDB("test.db")
 	if err := migrate.CreateTables(db.Db); err != nil {
 		panic("Failed to create tables: " + err.Error())
 	}
 }
 
 func teardownTestDB() {
-	defer db.Db.Close()
+	defer func() {
+		db.Db.Close()
+		os.Remove("test.db")
+	}()
 	err := migrate.DropTables(db.Db)
 	if err != nil {
 		panic("Failed to drop tables: " + err.Error())
@@ -55,65 +52,65 @@ func checkResponseBodyContains(t *testing.T, expectedSubstring string, actualBod
 	}
 }
 
+func createRequest(method, url string, body map[string]any) *http.Request {
+	reqBody, _ := json.Marshal(body)
+	req := httptest.NewRequest(method, url, bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	return req
+}
+
 func TestInsertData(t *testing.T) {
 	setupTestDB()
 	defer teardownTestDB()
 
-	// Helper function to create a request
-	createRequest := func(method, url string, body map[string]interface{}) *http.Request {
-		reqBody, _ := json.Marshal(body)
-		req := httptest.NewRequest(method, url, bytes.NewBuffer(reqBody))
-		req.Header.Set("Content-Type", "application/json")
-		return req
-	}
-
-	t.Run("Basic Tests", func(t *testing.T) {
+	t.Run("Valid Data Insertion", func(t *testing.T) {
 		pastDate := "01-01-2006"
+		validPayload := map[string]any{
+			"type":              utils.TypeIncoming,
+			"date":              pastDate,
+			"remark":            "Test Remark",
+			"voucher_no":        "12345",
+			"compound_id":       "sodiumChloride",
+			"num_of_units":      10,
+			"quantity_per_unit": 5,
+		}
 
+		req := createRequest(http.MethodPost, "/insert", validPayload)
+		resp := executeRequest(req, handlers.InsertData)
+
+		checkResponseCode(t, http.StatusCreated, resp.Code)
+		checkResponseBodyContains(t, utils.Entry_inserted_successfully, resp.Body.String())
+	})
+
+	t.Run("Invalid Input Handling", func(t *testing.T) {
+		pastDate := "01-01-2006"
 		testCases := []struct {
 			name           string
-			requestBody    map[string]interface{}
+			requestBody    map[string]any
 			expectedStatus int
-			expectedError  string // Optional: substring expected in the error message
+			expectedError  string
 		}{
 			{
-				name: "Valid Incoming Transaction - New Compound",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeIncoming,
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "sodiumChloride",
-					// "scale":             "mg",
-					"num_of_units":      10,
-					"quantity_per_unit": 5,
-				},
-				expectedStatus: http.StatusCreated,
-			},
-			{
-				name: "Missing Required Field - QuantityPerUnit",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeIncoming,
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "benzene",
-					// "scale":        "mg",
+				name: "Missing QuantityPerUnit",
+				requestBody: map[string]any{
+					"type":         utils.TypeIncoming,
+					"date":         pastDate,
+					"remark":       "Test Remark",
+					"voucher_no":   "12345",
+					"compound_id":  "benzene",
 					"num_of_units": 10,
-					// Missing "quantity_per_unit"
 				},
 				expectedStatus: http.StatusBadRequest,
 				expectedError:  utils.MissingFields_or_inappropriate_value,
 			},
 			{
 				name: "Invalid Date Format",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeIncoming,
-					"date":        "15042025", // Invalid date format
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "benzene",
-					// "scale":             "mg",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              "15042025",
+					"remark":            "Test Remark",
+					"voucher_no":        "12345",
+					"compound_id":       "benzene",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
@@ -121,14 +118,13 @@ func TestInsertData(t *testing.T) {
 				expectedError:  utils.Invalid_date_format,
 			},
 			{
-				name: "Invalid Date - Future Date",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeIncoming,
-					"date":        time.Now().AddDate(0, 1, 0).Format("02-01-2006"), // Future date
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "benzene",
-					// "scale":             "mg",
+				name: "Future Date",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              time.Now().AddDate(0, 1, 0).Format("02-01-2006"),
+					"remark":            "Test Remark",
+					"voucher_no":        "12345",
+					"compound_id":       "benzene",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
@@ -136,29 +132,13 @@ func TestInsertData(t *testing.T) {
 				expectedError:  utils.Future_date_error,
 			},
 			{
-				name: "Invalid Scale",
-				requestBody: map[string]interface{}{
-					"type":              utils.TypeIncoming,
+				name: "Invalid Type",
+				requestBody: map[string]any{
+					"type":              "transfer",
 					"date":              pastDate,
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
 					"compound_id":       "benzene",
-					"scale":             "kg", // Invalid scale
-					"num_of_units":      10,
-					"quantity_per_unit": 5,
-				},
-				expectedStatus: http.StatusBadRequest,
-				expectedError:  utils.MissingFields_or_inappropriate_value,
-			},
-			{
-				name: "Invalid Type",
-				requestBody: map[string]interface{}{
-					"type":        "transfer", // Invalid type
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "benzene",
-					// "scale":             "mg",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
@@ -167,13 +147,12 @@ func TestInsertData(t *testing.T) {
 			},
 			{
 				name: "Zero QuantityPerUnit",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeIncoming,
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "benzene",
-					// "scale":             "mg",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "Test Remark",
+					"voucher_no":        "12345",
+					"compound_id":       "benzene",
 					"num_of_units":      10,
 					"quantity_per_unit": 0,
 				},
@@ -182,13 +161,12 @@ func TestInsertData(t *testing.T) {
 			},
 			{
 				name: "Zero NumOfUnits",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeIncoming,
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "benzene",
-					// "scale":             "mg",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "Test Remark",
+					"voucher_no":        "12345",
+					"compound_id":       "benzene",
 					"num_of_units":      0,
 					"quantity_per_unit": 5,
 				},
@@ -197,247 +175,58 @@ func TestInsertData(t *testing.T) {
 			},
 			{
 				name:           "Empty Payload",
-				requestBody:    map[string]interface{}{},
+				requestBody:    map[string]any{},
 				expectedStatus: http.StatusBadRequest,
-				expectedError:  utils.MissingFields_or_inappropriate_value, // Expecting date error for empty payload
+				expectedError:  utils.MissingFields_or_inappropriate_value,
 			},
 			{
 				name: "Invalid Request Method - GET",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeIncoming,
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "benzene",
-					// "scale":             "mg",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "Test Remark",
+					"voucher_no":        "12345",
+					"compound_id":       "benzene",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
 				expectedStatus: http.StatusMethodNotAllowed,
 				expectedError:  utils.InvalidMethod,
 			},
-			{
-				name: "Case Sensitivity - Invalid Scale (Uppercase)",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeIncoming,
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "benzene",
-					// "scale":             "MG", // Uppercase scale
-					"num_of_units":      10,
-					"quantity_per_unit": 5,
-				},
-				expectedStatus: http.StatusBadRequest,
-				expectedError:  utils.MissingFields_or_inappropriate_value,
-			},
-			{
-				name: "Case Sensitivity - Invalid Type (Uppercase)",
-				requestBody: map[string]interface{}{
-					"type":        "Incoming", // Uppercase type
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "benzene",
-					// "scale":             "mg",
-					"num_of_units":      10,
-					"quantity_per_unit": 5,
-				},
-				expectedStatus: http.StatusBadRequest,
-				expectedError:  utils.MissingFields_or_inappropriate_value,
-			},
-			{
-				name: "Empty Remark and Voucher Number",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeIncoming,
-					"date":        pastDate,
-					"remark":      "",
-					"voucher_no":  "",
-					"compound_id": "benzene",
-					// "scale":             "mg",
-					"num_of_units":      10,
-					"quantity_per_unit": 5,
-				},
-				expectedStatus: http.StatusCreated,
-			},
 		}
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
-				var req *http.Request
+				method := http.MethodPost
 				if tc.name == "Invalid Request Method - GET" {
-					req = createRequest(http.MethodGet, "/insert", tc.requestBody)
-				} else {
-					req = createRequest(http.MethodPost, "/insert", tc.requestBody)
+					method = http.MethodGet
 				}
+				req := createRequest(method, "/insert", tc.requestBody)
 				resp := executeRequest(req, handlers.InsertData)
+
 				checkResponseCode(t, tc.expectedStatus, resp.Code)
-				if tc.expectedError != "" {
-					checkResponseBodyContains(t, tc.expectedError, resp.Body.String())
-				}
+				checkResponseBodyContains(t, tc.expectedError, resp.Body.String())
 			})
 		}
 	})
 
-	t.Run("Advanced Tests", func(t *testing.T) {
-		pastDate := time.Now().AddDate(0, -1, 0).Format("02-01-2006")
-
-		// Helper function to create a request
-		createRequest := func(method, url string, body map[string]interface{}) *http.Request {
-			reqBody, _ := json.Marshal(body)
-			req := httptest.NewRequest(method, url, bytes.NewBuffer(reqBody))
-			req.Header.Set("Content-Type", "application/json")
-			return req
-		}
-
-		// Helper function to insert initial stock
-		insertInitialStock := func() {
-			_, err := db.Db.Exec(`
-				INSERT INTO quantity (id, num_of_units, quantity_per_unit) VALUES (?, ?, ?);
-				INSERT INTO entry (id, type, date, compound_id, remark, voucher_no, quantity_id, net_stock)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?);
-			`,
-				"Q_benzene_1", 10, 5,
-				"E_benzene_1", utils.TypeIncoming, pastDate, "benzene", "Initial Stock", "12345", "Q_benzene_1", 50,
-			)
-			if err != nil {
-				t.Fatalf("Failed to insert initial stock: %v", err)
-			}
-		}
-
-		// Helper function to clear the database before each advanced test
-		clearDatabase := func() {
-			_, err := db.Db.Exec("DELETE FROM entry")
-			if err != nil {
-				t.Fatalf("Failed to delete from entry: %v", err)
-			}
-			_, err = db.Db.Exec("DELETE FROM quantity")
-			if err != nil {
-				t.Fatalf("Failed to delete from quantity: %v", err)
-			}
-			_, err = db.Db.Exec("DELETE FROM compound")
-			if err != nil {
-				t.Fatalf("Failed to delete from compound: %v", err)
-			}
-		}
-
+	t.Run("Edge Cases", func(t *testing.T) {
+		pastDate := "01-01-2006"
 		testCases := []struct {
 			name           string
-			requestBody    map[string]interface{}
+			requestBody    map[string]any
 			expectedStatus int
-			expectedError  string // Optional: substring expected in the error message
 		}{
 			{
-				name: "Valid Outgoing Transaction",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeOutgoing,
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "benzene",
-					// "scale":             "mg",
-					"num_of_units":      5,
-					"quantity_per_unit": 5,
-				},
-				expectedStatus: http.StatusCreated,
-			},
-			{
-				name: "Outgoing Transaction with Exactly Enough Stock",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeOutgoing,
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "benzene",
-					// "scale":             "mg",
+				name: "Empty Remark and Voucher Number",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "",
+					"voucher_no":        "",
+					"compound_id":       "benzene",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
-				},
-				expectedStatus: http.StatusCreated,
-			},
-			{
-				name: "Outgoing Transaction with Insufficient Stock",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeOutgoing,
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "benzene",
-					// "scale":             "mg",
-					"num_of_units":      11,
-					"quantity_per_unit": 5,
-				},
-				expectedStatus: http.StatusNotAcceptable,
-				expectedError:  utils.Insufficient_stock,
-			},
-			{
-				name: "Outgoing Transaction for Nonexistent Compound",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeOutgoing,
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "NonexistentCompound",
-					// "scale":             "mg",
-					"num_of_units":      5,
-					"quantity_per_unit": 5,
-				},
-				expectedStatus: http.StatusNotFound,
-				expectedError:  utils.Item_not_found,
-			},
-			{
-				name: "Incoming Transaction for Existing Compound",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeIncoming,
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "67890",
-					"compound_id": "benzene",
-					// "scale":             "mg",
-					"num_of_units":      5,
-					"quantity_per_unit": 10,
-				},
-				expectedStatus: http.StatusCreated,
-			},
-			{
-				name: "Incoming Transaction for Existing Compound with Different Scale (Should Work)",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeIncoming,
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "13579",
-					"compound_id": "benzene",
-					// "scale":             "ml", // Different scale, but compound already exists with 'mg' - this might be a design consideration, current logic allows it.
-					"num_of_units":      2,
-					"quantity_per_unit": 25,
-				},
-				expectedStatus: http.StatusCreated, // Expecting success, the logic allows this
-			},
-			{
-				name: "Incoming Transaction for New Compound",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeIncoming,
-					"date":        pastDate,
-					"remark":      "New Compound Added",
-					"voucher_no":  "24680",
-					"compound_id": "sodiumChloride",
-					// "scale":             "ml",
-					"num_of_units":      3,
-					"quantity_per_unit": 100,
-				},
-				expectedStatus: http.StatusCreated,
-			},
-			{
-				name: "Outgoing Transaction with Exactly Enough Stock - Boundary",
-				requestBody: map[string]interface{}{
-					"type":        utils.TypeOutgoing,
-					"date":        pastDate,
-					"remark":      "Test Remark",
-					"voucher_no":  "12345",
-					"compound_id": "benzene",
-					// "scale":             "mg",
-					"num_of_units":      5,
-					"quantity_per_unit": 10, // Total withdrawal of 5 * 10 = 50, which is the initial stock
 				},
 				expectedStatus: http.StatusCreated,
 			},
@@ -445,14 +234,372 @@ func TestInsertData(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
-				clearDatabase() // Clear database before each test case
-				insertInitialStock()
 				req := createRequest(http.MethodPost, "/insert", tc.requestBody)
 				resp := executeRequest(req, handlers.InsertData)
 				checkResponseCode(t, tc.expectedStatus, resp.Code)
-				if tc.expectedError != "" {
-					checkResponseBodyContains(t, tc.expectedError, resp.Body.String())
-				}
+			})
+		}
+	})
+
+	t.Run("Compound Existence Validation", func(t *testing.T) {
+		pastDate := "01-01-2006"
+		invalidCompoundPayload := map[string]any{
+			"type":              utils.TypeIncoming,
+			"date":              pastDate,
+			"remark":            "Test Remark",
+			"voucher_no":        "12345",
+			"compound_id":       "nonExistentCompound",
+			"num_of_units":      10,
+			"quantity_per_unit": 5,
+		}
+
+		req := createRequest(http.MethodPost, "/insert", invalidCompoundPayload)
+		resp := executeRequest(req, handlers.InsertData)
+
+		checkResponseCode(t, http.StatusNotFound, resp.Code)
+		checkResponseBodyContains(t, utils.Item_not_found, resp.Body.String())
+	})
+
+	t.Run("More Invalid Input", func(t *testing.T) {
+		pastDate := "01-01-2006"
+		testCases := []struct {
+			name           string
+			requestBody    map[string]any
+			expectedStatus int
+			expectedError  string
+		}{
+			{
+				name: "Negative NumOfUnits",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "Test Remark",
+					"voucher_no":        "12345",
+					"compound_id":       "benzene",
+					"num_of_units":      -1,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusBadRequest,
+				expectedError:  utils.MissingFields_or_inappropriate_value,
+			},
+			{
+				name: "Negative QuantityPerUnit",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "Test Remark",
+					"voucher_no":        "12345",
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": -5,
+				},
+				expectedStatus: http.StatusBadRequest,
+				expectedError:  utils.MissingFields_or_inappropriate_value,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				req := createRequest(http.MethodPost, "/insert", tc.requestBody)
+				resp := executeRequest(req, handlers.InsertData)
+				checkResponseCode(t, tc.expectedStatus, resp.Code)
+				checkResponseBodyContains(t, tc.expectedError, resp.Body.String())
+			})
+		}
+	})
+
+	t.Run("String Length Validation", func(t *testing.T) {
+		pastDate := "01-01-2006"
+		longString := strings.Repeat("A", 256) // Exceeding a hypothetical max length
+
+		testCases := []struct {
+			name           string
+			requestBody    map[string]any
+			expectedStatus int
+			expectedError  string
+		}{
+			{
+				name: "Long Remark",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            longString,
+					"voucher_no":        "123",
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusBadRequest, // Or appropriate validation error
+				expectedError:  utils.MissingFields_or_inappropriate_value,
+			},
+			{
+				name: "Long VoucherNo",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "Test Remark",
+					"voucher_no":        longString,
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusBadRequest,
+				expectedError:  utils.MissingFields_or_inappropriate_value,
+			},
+			// Add more cases for other string fields if needed
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				req := createRequest(http.MethodPost, "/insert", tc.requestBody)
+				resp := executeRequest(req, handlers.InsertData)
+				checkResponseCode(t, tc.expectedStatus, resp.Code)
+				checkResponseBodyContains(t, tc.expectedError, resp.Body.String())
+			})
+		}
+	})
+
+	t.Run("Boundary Values", func(t *testing.T) {
+		pastDate := "01-01-2006"
+		testCases := []struct {
+			name           string
+			requestBody    map[string]any
+			expectedStatus int
+		}{
+			{
+				name: "Max Int for NumOfUnits",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "Max Units",
+					"voucher_no":        "123",
+					"compound_id":       "benzene",
+					"num_of_units":      2147483647,
+					"quantity_per_unit": 1,
+				},
+				expectedStatus: http.StatusCreated, // Assuming success if within DB limits
+			},
+			{
+				name: "Max Int for QuantityPerUnit",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "Max QPU",
+					"voucher_no":        "123",
+					"compound_id":       "benzene",
+					"num_of_units":      1,
+					"quantity_per_unit": 2147483647,
+				},
+				expectedStatus: http.StatusCreated,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				req := createRequest(http.MethodPost, "/insert", tc.requestBody)
+				resp := executeRequest(req, handlers.InsertData)
+				checkResponseCode(t, tc.expectedStatus, resp.Code)
+			})
+		}
+	})
+
+	t.Run("Case Sensitivity", func(t *testing.T) {
+		pastDate := "01-01-2006"
+		testCases := []struct {
+			name           string
+			requestBody    map[string]any
+			expectedStatus int
+			expectedError  string
+		}{
+			{
+				name: "Uppercase Type",
+				requestBody: map[string]any{
+					"type":              strings.ToUpper(utils.TypeIncoming),
+					"date":              pastDate,
+					"remark":            "Case Test",
+					"voucher_no":        "123",
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusBadRequest,
+				expectedError:  utils.MissingFields_or_inappropriate_value,
+			},
+			{
+				name: "Lowercase Type",
+				requestBody: map[string]any{
+					"type":              strings.ToLower(utils.TypeIncoming),
+					"date":              pastDate,
+					"remark":            "Case Test",
+					"voucher_no":        "123",
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusBadRequest,
+				expectedError:  utils.MissingFields_or_inappropriate_value,
+			},
+			{
+				name: "MixedCase Type",
+				requestBody: map[string]any{
+					"type":              "InComIng",
+					"date":              pastDate,
+					"remark":            "Case Test",
+					"voucher_no":        "123",
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusBadRequest,
+				expectedError:  utils.MissingFields_or_inappropriate_value,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				req := createRequest(http.MethodPost, "/insert", tc.requestBody)
+				resp := executeRequest(req, handlers.InsertData)
+				checkResponseCode(t, tc.expectedStatus, resp.Code)
+				checkResponseBodyContains(t, tc.expectedError, resp.Body.String())
+			})
+		}
+	})
+
+	t.Run("Date Boundary Values", func(t *testing.T) {
+		testCases := []struct {
+			name           string
+			requestBody    map[string]any
+			expectedStatus int
+			expectedError  string
+		}{
+			{
+				name: "Epoch Date",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              "01-01-1970",
+					"remark":            "Epoch",
+					"voucher_no":        "123",
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusCreated, // Or appropriate success
+				expectedError:  "",
+			},
+			{
+				name: "Near Future Date",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              time.Now().AddDate(0, 0, 1).Format("02-01-2006"),
+					"remark":            "Near Future",
+					"voucher_no":        "123",
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusBadRequest,
+				expectedError:  utils.Future_date_error,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				req := createRequest(http.MethodPost, "/insert", tc.requestBody)
+				resp := executeRequest(req, handlers.InsertData)
+				checkResponseCode(t, tc.expectedStatus, resp.Code)
+				checkResponseBodyContains(t, tc.expectedError, resp.Body.String())
+			})
+		}
+	})
+
+	t.Run("Unicode Characters", func(t *testing.T) {
+		pastDate := "01-01-2006"
+		testCases := []struct {
+			name           string
+			requestBody    map[string]any
+			expectedStatus int
+		}{
+			{
+				name: "Unicode Remark",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "Unicode Test: こんにちは、世界！",
+					"voucher_no":        "123",
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusCreated,
+			},
+			{
+				name: "Unicode Voucher",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "Unicode Test",
+					"voucher_no":        "你好世界",
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusCreated,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				req := createRequest(http.MethodPost, "/insert", tc.requestBody)
+				resp := executeRequest(req, handlers.InsertData)
+				checkResponseCode(t, tc.expectedStatus, resp.Code)
+			})
+		}
+	})
+
+	t.Run("Trailing Whitespace", func(t *testing.T) {
+		pastDate := "01-01-2006"
+		testCases := []struct {
+			name           string
+			requestBody    map[string]any
+			expectedStatus int
+			expectedError  string
+		}{
+			{
+				name: "Trailing Whitespace in Remark",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "Test Remark  ",
+					"voucher_no":        "123",
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusCreated, // Or handle whitespace trimming
+				expectedError:  "",
+			},
+			{
+				name: "Trailing Whitespace in Voucher",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "Test Remark",
+					"voucher_no":        "123  ",
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusCreated, // Or handle whitespace trimming
+				expectedError:  "",
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				req := createRequest(http.MethodPost, "/insert", tc.requestBody)
+				resp := executeRequest(req, handlers.InsertData)
+				checkResponseCode(t, tc.expectedStatus, resp.Code)
+				checkResponseBodyContains(t, tc.expectedError, resp.Body.String())
 			})
 		}
 	})

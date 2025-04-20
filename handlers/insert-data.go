@@ -13,8 +13,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// TODO: Check if any of the functions, used in here, needs to be retried
-
+// InsertData handles the insertion of chemical ledger data based on provided filters,
+// reusing functions from the utils package.
 func InsertData(w http.ResponseWriter, r *http.Request) {
 	if err := utils.ValidateReqMethod(r.Method, http.MethodPost, w); err != nil {
 		return

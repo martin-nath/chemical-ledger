@@ -10,8 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// GetData handles the retrieval of chemical ledger data based on provided filters,
-// reusing functions from the utils package.
+
 func GetData(w http.ResponseWriter, r *http.Request) {
 	if err := utils.ValidateReqMethod(r.Method, http.MethodGet, w); err != nil {
 		return

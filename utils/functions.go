@@ -9,11 +9,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/avast/retry-go/v4"
 	"github.com/martin-nath/chemical-ledger/db"
 	"github.com/sirupsen/logrus"
 )
 
+// Executes the given function and retries it if it fails.
+func Retry(fn func() error) error {
+	var err error
+	for i := range MaxRetries {
+		err = fn()
+		if err == nil {
+			return nil
+		}
+		logrus.Debugf("Error after retry #%d: %v", i+1, err)
+		time.Sleep(RetryDelay)
+	}
+	return err
+}
+
+// Executes the given function and retries it if it fails.
 func UnixTimestamp(dateStr string) (int64, error) {
 	date, err := time.Parse("02-01-2006", dateStr)
 	if err != nil {
@@ -36,7 +50,7 @@ func JsonRes(w http.ResponseWriter, status int, resObj *Resp) {
 }
 
 // Helper function to decode a JSON request body. If any errors occur, it will return an error and write the error message to the response writer.
-func JsonReq(r *http.Request, dst interface{}, w http.ResponseWriter) error {
+func JsonReq(r *http.Request, dst any, w http.ResponseWriter) error {
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
 		logrus.Errorf("Error decoding JSON request body: %v", err)
 		JsonRes(w, http.StatusBadRequest, &Resp{Error: Req_body_decode_error})
@@ -48,26 +62,40 @@ func JsonReq(r *http.Request, dst interface{}, w http.ResponseWriter) error {
 // Updates the net stock of subsequent entries for a given compound from the given date till today.
 func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, w http.ResponseWriter) error {
 	var previousStock int
-	err := dbTx.QueryRow("SELECT net_stock FROM entry WHERE compound_id = ? AND date < ? ORDER BY date DESC LIMIT 1", compoundId, entryDate).Scan(&previousStock)
+	err := Retry(func() error {
+		err := dbTx.QueryRow("SELECT net_stock FROM entry WHERE compound_id = ? AND date < ? ORDER BY date DESC LIMIT 1", compoundId, entryDate).Scan(&previousStock)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			JsonRes(w, http.StatusInternalServerError, &Resp{Error: Stock_retrieval_error})
+			logrus.Errorf("Error retrieving previous stock for compound '%s': %v", compoundId, err)
+			return errors.New("error retrieving previous stock")
+		}
+		return nil
+	})
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		JsonRes(w, http.StatusInternalServerError, &Resp{Error: Stock_retrieval_error})
 		logrus.Errorf("Error retrieving previous stock for compound '%s': %v", compoundId, err)
 		return errors.New("error retrieving previous stock")
 	}
 
-	rows, err := dbTx.Query(`
-		SELECT
-			e.id AS entry_id,
-			e.type AS entry_type,
-			q.num_of_units * q.quantity_per_unit AS quantity,
-			e.date AS entry_date
-		FROM entry e
-		JOIN quantity q ON e.quantity_id = q.id
-		WHERE
-			e.compound_id = ? AND e.date >= ?
-		ORDER BY
-			e.date ASC
-	`, compoundId, entryDate)
+	var rows *sql.Rows
+	err = Retry(func() error {
+		var queryErr error
+		rows, queryErr = dbTx.Query(`
+				SELECT
+					e.id AS entry_id,
+					e.type AS entry_type,
+					q.num_of_units * q.quantity_per_unit AS quantity,
+					e.date AS entry_date
+				FROM entry e
+				JOIN quantity q ON e.quantity_id = q.id
+				WHERE
+					e.compound_id = ? AND e.date >= ?
+				ORDER BY
+					e.date ASC
+			`, compoundId, entryDate)
+		return queryErr
+	})
+
 	if err != nil {
 		JsonRes(w, http.StatusInternalServerError, &Resp{Error: Stock_retrieval_error})
 		logrus.Errorf("Error retrieving subsequent entries for compound '%s': %v", compoundId, err)
@@ -119,15 +147,14 @@ func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, 
 	return nil
 }
 
-
 // Begins a database transaction. If any errors occur, it will return an error and write the error message to the response writer.
 func BeginDbTx(w http.ResponseWriter) (*sql.Tx, error) {
 	var dbTx *sql.Tx
-	err := retry.Do(func() error {
+	err := Retry(func() error {
 		var err error
 		dbTx, err = db.Db.Begin()
 		return err
-	}, retry.Attempts(MaxRetries), retry.Delay(RetryDelay))
+	})
 
 	if err != nil {
 		logrus.Errorf("Error starting database transaction: %v", err)
@@ -156,7 +183,7 @@ func CheckIfCompoundExists(compoundId string, w http.ResponseWriter) error {
 		JsonRes(w, http.StatusInternalServerError, &Resp{Error: Compound_check_error})
 		return err
 	}
-	
+
 	if !compoundExists {
 		logrus.Warnf("Compound '%s' not found.", compoundId)
 		JsonRes(w, http.StatusNotFound, &Resp{Error: Item_not_found})

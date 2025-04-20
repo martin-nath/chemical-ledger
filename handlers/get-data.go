@@ -1,84 +1,112 @@
 package handlers
 
 import (
-	"database/sql"
-	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"strings"
 
-	"github.com/avast/retry-go/v4"
 	"github.com/martin-nath/chemical-ledger/db"
 	"github.com/martin-nath/chemical-ledger/utils"
 	"github.com/sirupsen/logrus"
 )
 
-// TODO: fix the code structure of this file, make it similar to the insert-data.go file
-// TODO: Reuse functions, if it can be
-// TODO: Check all the responses and make sure they are correct in its situations
-
+// GetData handles the retrieval of chemical ledger data based on provided filters,
+// reusing functions from the utils package.
 func GetData(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.JsonRes(w, http.StatusMethodNotAllowed, &utils.Resp{Error: utils.InvalidMethod})
+	if err := utils.ValidateReqMethod(r.Method, http.MethodGet, w); err != nil {
 		return
 	}
-	ctx := r.Context()
 
 	logrus.Info("Received request to get data.")
 
+	filters, err := parseGetDataFilters(r)
+	if err != nil {
+		utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{Error: err.Error()})
+		return
+	}
+	logrus.Debugf("Parsed filters: %+v", filters)
+
+	if err := validateGetDataFilterType(w, filters); err != nil {
+		return
+	}
+
+	fromDate, toDate, err := parseAndValidateDateRangeGetData(w, filters)
+	if err != nil {
+		return
+	}
+
+	queryStr, countQueryStr, filterArgs := buildGetDataQueries(filters, fromDate, toDate)
+	logrus.Debugf("Data Query: %s, Args: %v", queryStr, filterArgs)
+	logrus.Debugf("Count Query: %s, Args: %v", countQueryStr, filterArgs)
+
+	totalCount, err := executeGetDataCountQuery(w, countQueryStr, filterArgs)
+	if err != nil {
+		return
+	}
+
+	entries, err := executeGetDataQuery(w, queryStr, filterArgs, totalCount)
+	if err != nil {
+		return
+	}
+
+	response := map[string]any{
+		"total":   totalCount,
+		"results": entries,
+	}
+	utils.JsonRes(w, http.StatusOK, &utils.Resp{Data: response})
+}
+
+// parseGetDataFilters extracts filter parameters from the HTTP request.
+func parseGetDataFilters(r *http.Request) (*utils.Filters, error) {
 	filters := &utils.Filters{}
 	query := r.URL.Query()
 	filters.Type = query.Get("type")
 	filters.CompoundName = query.Get("compound")
 	filters.FromDate = query.Get("fromDate")
 	filters.ToDate = query.Get("toDate")
+	return filters, nil
+}
 
-	logrus.Debugf("Parsed filters: %+v", filters)
-
+// validateGetDataFilterType checks if the 'type' filter is valid and writes an error response if not.
+func validateGetDataFilterType(w http.ResponseWriter, filters *utils.Filters) error {
 	if filters.Type != utils.TypeIncoming && filters.Type != utils.TypeOutgoing && filters.Type != utils.TypeBoth && filters.Type != "" {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, `{"error": "Invalid 'type' filter. Please use 'incoming', 'outgoing', or 'both'."}`)
-		logrus.Warnf("Invalid 'type' filter provided: %s", filters.Type)
-		return
+		utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{Error: "Invalid 'type' filter. Please use 'incoming', 'outgoing', or 'both'."})
+		return errors.New("invalid 'type' filter")
 	}
+	return nil
+}
 
-	if filters.FromDate != "" && filters.ToDate != "" && filters.ToDate < filters.FromDate {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, `{"error": "Invalid date range: 'toDate' cannot be earlier than 'fromDate'."}`)
-		logrus.Warn("Invalid date range provided.")
-		return
-	}
-
+// parseAndValidateDateRangeGetData parses and validates the fromDate and toDate filters and writes error responses.
+func parseAndValidateDateRangeGetData(w http.ResponseWriter, filters *utils.Filters) (int64, int64, error) {
 	var fromDate int64
 	var toDate int64
 	var err error
+
 	if filters.FromDate != "" {
-		fromDate, err = utils.UnixTimestamp(filters.FromDate)
+		fromDate, err = utils.ParseAndValidateDate(filters.FromDate, w)
 		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, `{"error": "Invalid 'fromDate' filter. Please use a valid date in the format '02-01-2006'."}`)
-			logrus.Warnf("Invalid 'fromDate' filter provided: %s", filters.FromDate)
-			return
+			return 0, 0, err
 		}
-		filters.FromDate = fmt.Sprintf("%d", fromDate)
 	}
 
 	if filters.ToDate != "" {
-		toDate, err = utils.UnixTimestamp(filters.ToDate)
+		toDate, err = utils.ParseAndValidateDate(filters.ToDate, w)
 		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, `{"error": "Invalid 'toDate' filter. Please use a valid date in the format '02-01-2006'."}`)
-			logrus.Warnf("Invalid 'toDate' filter provided: %s", filters.ToDate)
-			return
+			return 0, 0, err
 		}
-		filters.ToDate = fmt.Sprintf("%d", toDate)
+		if filters.FromDate != "" && toDate < fromDate {
+			utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{Error: "Invalid date range: 'toDate' cannot be earlier than 'fromDate'."})
+			logrus.Warn("Invalid date range provided.")
+			return 0, 0, errors.New("invalid date range")
+		}
 	}
+	return fromDate, toDate, nil
+}
 
-	var queryBuilder, countQueryBuilder strings.Builder
+// buildGetDataQueries constructs the SQL query and count query based on the filters.
+func buildGetDataQueries(filters *utils.Filters, fromDate int64, toDate int64) (string, string, []any) {
+	queryBuilder := strings.Builder{}
+	countQueryBuilder := strings.Builder{}
 	filterArgs := make([]any, 0)
 
 	queryBuilder.WriteString(`
@@ -109,107 +137,67 @@ WHERE 1=1`)
 		countQueryBuilder.WriteString(" AND c.name = ?")
 		filterArgs = append(filterArgs, filters.CompoundName)
 	}
-	if filters.FromDate != "" {
+	if fromDate > 0 {
 		queryBuilder.WriteString(" AND e.date >= ?")
 		countQueryBuilder.WriteString(" AND e.date >= ?")
 		filterArgs = append(filterArgs, fromDate)
 	}
-	if filters.ToDate != "" {
-		queryBuilder.WriteString(" AND e.date < ?")
-		countQueryBuilder.WriteString(" AND e.date < ?")
+	if toDate > 0 {
+		queryBuilder.WriteString(" AND e.date <= ?")
+		countQueryBuilder.WriteString(" AND e.date <= ?")
 		filterArgs = append(filterArgs, toDate)
 	}
 
 	queryBuilder.WriteString(" ORDER BY e.date DESC")
 
-	queryStr := queryBuilder.String()
-	countQueryStr := countQueryBuilder.String()
+	return queryBuilder.String(), countQueryBuilder.String(), filterArgs
+}
 
-	logrus.Debugf("Data Query: %s, Args: %v", queryStr, filterArgs)
-	logrus.Debugf("Count Query: %s, Args: %v", countQueryStr, filterArgs)
-
+// executeGetDataCountQuery executes the SQL query to get the total count of matching entries and writes an error response if it fails.
+func executeGetDataCountQuery(w http.ResponseWriter, countQueryStr string, filterArgs []any) (int, error) {
 	var count int
-	err = retry.Do(
-		func() error {
-			return db.Db.QueryRowContext(ctx, countQueryStr, filterArgs...).Scan(&count)
-		},
-		retry.Attempts(utils.MaxRetries+1),
-		retry.Delay(utils.RetryDelay),
-		retry.Context(ctx),
-	)
+	err := utils.Retry(func() error {
+		return db.Db.QueryRow(countQueryStr, filterArgs...).Scan(&count)
+	})
 	if err != nil {
 		logrus.Errorf("Error executing count query: %v", err)
-
-		// TODO: use an appropriate error message
 		utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{Error: utils.Stock_retrieval_error})
-		return
+		return 0, err
 	}
+	return count, nil
+}
 
-	entries := make([]utils.GetEntry, count)
-	i := 0
-	var rows *sql.Rows
-
-	err = retry.Do(
-		func() error {
-			var queryErr error
-			rows, queryErr = db.Db.QueryContext(ctx, queryStr, filterArgs...)
-			if queryErr != nil {
-				return queryErr
-			}
-			defer rows.Close()
-
-			for rows.Next() {
-				var e utils.GetEntry
-				scanErr := rows.Scan(
-					&e.ID, &e.Type, &e.Date,
-					&e.Remark, &e.VoucherNo, &e.NetStock,
-					&e.CompoundName, &e.Scale,
-					&e.NumOfUnits, &e.QuantityPerUnit,
-				)
-				if scanErr != nil {
-					return fmt.Errorf("error scanning data row: %w", scanErr)
-				}
-				entries[i] = e
-				i++
-			}
-			if err := rows.Err(); err != nil {
-				return fmt.Errorf("error during rows iteration: %w", err)
-			}
-			return nil
-		},
-		retry.Attempts(utils.MaxRetries+1),
-		retry.Delay(utils.RetryDelay),
-		retry.Context(ctx),
-	)
-
+// executeGetDataQuery executes the SQL query to retrieve the data entries and writes an error response if it fails.
+func executeGetDataQuery(w http.ResponseWriter, queryStr string, filterArgs []any, totalCount int) ([]utils.GetEntry, error) {
+	rows, err := db.Db.Query(queryStr, filterArgs...)
 	if err != nil {
 		logrus.Errorf("Error executing data query: %v", err)
-
-		// TODO: use an appropriate error message
 		utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{Error: utils.Stock_retrieval_error})
-		return
+		return nil, err
+	}
+	defer rows.Close()
+
+	entries := make([]utils.GetEntry, 0, totalCount)
+	for rows.Next() {
+		var e utils.GetEntry
+		err := rows.Scan(
+			&e.ID, &e.Type, &e.Date,
+			&e.Remark, &e.VoucherNo, &e.NetStock,
+			&e.CompoundName, &e.Scale,
+			&e.NumOfUnits, &e.QuantityPerUnit,
+		)
+		if err != nil {
+			logrus.Errorf("Error scanning data row: %v", err)
+			utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{Error: utils.Stock_retrieval_error})
+			return nil, err
+		}
+		entries = append(entries, e)
 	}
 
-	// firstErr := <-errCh
-	// if firstErr != nil {
-	// 	logrus.Errorf("Error fetching data: %v", firstErr)
-	// 	if ctx.Err() == context.Canceled || ctx.Err() == context.DeadlineExceeded {
-	// 		http.Error(w, `{"error": "Request cancelled or timed out."}`, http.StatusServiceUnavailable)
-	// 	} else {
-	// 		http.Error(w, `{"error": "Failed to retrieve data. Please try again later."}`, http.StatusInternalServerError)
-	// 	}
-	// 	return
-	// }
-
-	logrus.Infof("Successfully retrieved %d entries (total matching count: %d).", len(entries), count)
-
-	response := map[string]interface{}{
-		"total":   count,
-		"results": entries,
+	if err := rows.Err(); err != nil {
+		logrus.Errorf("Error during rows iteration: %v", err)
+		utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{Error: utils.Stock_retrieval_error})
+		return nil, err
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		logrus.Errorf("Error encoding JSON response: %v", err)
-	}
+	return entries, nil
 }

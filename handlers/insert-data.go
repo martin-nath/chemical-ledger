@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/avast/retry-go/v4"
 	"github.com/google/uuid"
 	"github.com/martin-nath/chemical-ledger/db"
 	"github.com/martin-nath/chemical-ledger/utils"
@@ -148,7 +147,7 @@ func insertEntryData(dbTx *sql.Tx, entry *utils.Entry, entryDate int64, currentS
 	quantityID := fmt.Sprintf("Q_%s", uuid.NewString())
 	entryID := fmt.Sprintf("E_%s", uuid.NewString())
 
-	err := retry.Do(func() error {
+	err := utils.Retry(func() error {
 		_, err := dbTx.Exec(`
 			INSERT INTO quantity (id, num_of_units, quantity_per_unit)
 			VALUES (?, ?, ?);
@@ -160,7 +159,7 @@ func insertEntryData(dbTx *sql.Tx, entry *utils.Entry, entryDate int64, currentS
 			entryID, entry.Type, entryDate, entry.CompoundId, entry.Remark, entry.VoucherNo, quantityID, currentStock,
 		)
 		return err
-	}, retry.Attempts(utils.MaxRetries), retry.Delay(utils.RetryDelay))
+	})
 
 	if err != nil {
 		logrus.Errorf("Error during batch insert for entry '%s' and quantity '%s': %v", entryID, quantityID, err)

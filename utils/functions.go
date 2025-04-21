@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -243,13 +244,33 @@ func SetupTestDB() {
 
 func TeardownTestDB() {
 	defer func() {
-		db.Db.Close()
-		os.Remove("test.db")
+		if db.Db != nil {
+			log.Println("Attempting to close test database connection...")
+			closeErr := db.Db.Close()
+			if closeErr != nil {
+				log.Printf("Error closing test database connection: %v", closeErr)
+			} else {
+				log.Println("Test database connection closed successfully.")
+			}
+		}
+
+		log.Println("Attempting to remove test database file...")
+		removeErr := os.Remove("test.db")
+		if removeErr != nil && !os.IsNotExist(removeErr) {
+			log.Printf("Error removing test database file: %v", removeErr)
+		} else if removeErr == nil {
+			log.Println("Test database file removed successfully.")
+		} else {
+			log.Println("Test database file did not exist or was already removed.")
+		}
 	}()
+
+	log.Println("Attempting to drop test database tables...")
 	err := migrate.DropTables(db.Db)
 	if err != nil {
 		panic("Failed to drop tables: " + err.Error())
 	}
+	log.Println("Test database tables dropped successfully.")
 }
 
 func ExecuteRequest(req *http.Request, handler http.HandlerFunc) *httptest.ResponseRecorder {

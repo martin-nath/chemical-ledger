@@ -15,7 +15,7 @@ func TestInsertData(t *testing.T) {
 	defer utils.TeardownTestDB()
 
 	t.Run("Valid Data Insertion", func(t *testing.T) {
-		pastDate := "01-01-2006"
+		pastDate := "2006-01-02"
 		validPayload := map[string]any{
 			"type":              utils.TypeIncoming,
 			"date":              pastDate,
@@ -34,7 +34,7 @@ func TestInsertData(t *testing.T) {
 	})
 
 	t.Run("Invalid Input Handling", func(t *testing.T) {
-		pastDate := "01-01-2006"
+		pastDate := "2006-01-02"
 		testCases := []struct {
 			name           string
 			requestBody    map[string]any
@@ -72,7 +72,7 @@ func TestInsertData(t *testing.T) {
 				name: "Future Date",
 				requestBody: map[string]any{
 					"type":              utils.TypeIncoming,
-					"date":              time.Now().AddDate(0, 1, 0).Format("02-01-2006"),
+					"date":              time.Now().AddDate(0, 1, 0).Format("2006-01-02"),
 					"remark":            "Test Remark",
 					"voucher_no":        "12345",
 					"compound_id":       "benzene",
@@ -162,7 +162,7 @@ func TestInsertData(t *testing.T) {
 	})
 
 	t.Run("Edge Cases", func(t *testing.T) {
-		pastDate := "01-01-2006"
+		pastDate := "2006-01-02"
 		testCases := []struct {
 			name           string
 			requestBody    map[string]any
@@ -193,7 +193,7 @@ func TestInsertData(t *testing.T) {
 	})
 
 	t.Run("Compound Existence Validation", func(t *testing.T) {
-		pastDate := "01-01-2006"
+		pastDate := "2006-01-02"
 		invalidCompoundPayload := map[string]any{
 			"type":              utils.TypeIncoming,
 			"date":              pastDate,
@@ -212,7 +212,7 @@ func TestInsertData(t *testing.T) {
 	})
 
 	t.Run("More Invalid Input", func(t *testing.T) {
-		pastDate := "01-01-2006"
+		pastDate := "2006-01-02"
 		testCases := []struct {
 			name           string
 			requestBody    map[string]any
@@ -260,8 +260,8 @@ func TestInsertData(t *testing.T) {
 	})
 
 	t.Run("String Length Validation", func(t *testing.T) {
-		pastDate := "01-01-2006"
-		longString := strings.Repeat("A", 256) // Exceeding a hypothetical max length
+		pastDate := "2006-01-02"
+		longString := strings.Repeat("A", 256)
 
 		testCases := []struct {
 			name           string
@@ -280,7 +280,7 @@ func TestInsertData(t *testing.T) {
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
-				expectedStatus: http.StatusCreated, // Or appropriate validation error
+				expectedStatus: http.StatusCreated,
 			},
 			{
 				name: "Long VoucherNo",
@@ -295,7 +295,6 @@ func TestInsertData(t *testing.T) {
 				},
 				expectedStatus: http.StatusCreated,
 			},
-			// Add more cases for other string fields if needed
 		}
 
 		for _, tc := range testCases {
@@ -303,57 +302,14 @@ func TestInsertData(t *testing.T) {
 				req := utils.CreateRequest(http.MethodPost, "/insert", tc.requestBody)
 				resp := utils.ExecuteRequest(req, handlers.InsertData)
 				utils.CheckResponseCode(t, tc.expectedStatus, resp.Code)
-				utils.CheckResponseBodyContains(t, tc.expectedError, resp.Body.String())
+				if tc.expectedError != "" {
+					utils.CheckResponseBodyContains(t, tc.expectedError, resp.Body.String())
+				}
 			})
 		}
 	})
 
-	t.Run("Boundary Values", func(t *testing.T) {
-		pastDate := "01-01-2006"
-		testCases := []struct {
-			name           string
-			requestBody    map[string]any
-			expectedStatus int
-		}{
-			{
-				name: "Max Int for NumOfUnits",
-				requestBody: map[string]any{
-					"type":              utils.TypeIncoming,
-					"date":              pastDate,
-					"remark":            "Max Units",
-					"voucher_no":        "123",
-					"compound_id":       "benzene",
-					"num_of_units":      2147483647,
-					"quantity_per_unit": 1,
-				},
-				expectedStatus: http.StatusCreated, // Assuming success if within DB limits
-			},
-			{
-				name: "Max Int for QuantityPerUnit",
-				requestBody: map[string]any{
-					"type":              utils.TypeIncoming,
-					"date":              pastDate,
-					"remark":            "Max QPU",
-					"voucher_no":        "123",
-					"compound_id":       "benzene",
-					"num_of_units":      1,
-					"quantity_per_unit": 2147483647,
-				},
-				expectedStatus: http.StatusCreated,
-			},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.name, func(t *testing.T) {
-				req := utils.CreateRequest(http.MethodPost, "/insert", tc.requestBody)
-				resp := utils.ExecuteRequest(req, handlers.InsertData)
-				utils.CheckResponseCode(t, tc.expectedStatus, resp.Code)
-			})
-		}
-	})
-
-	t.Run("Case Sensitivity", func(t *testing.T) {
-		pastDate := "01-01-2006"
+	t.Run("Date Boundary Values", func(t *testing.T) {
 		testCases := []struct {
 			name           string
 			requestBody    map[string]any
@@ -361,19 +317,55 @@ func TestInsertData(t *testing.T) {
 			expectedError  string
 		}{
 			{
-				name: "Uppercase Type",
+				name: "Epoch Date",
 				requestBody: map[string]any{
-					"type":              strings.ToUpper(utils.TypeIncoming),
-					"date":              pastDate,
-					"remark":            "Case Test",
+					"type":              utils.TypeIncoming,
+					"date":              "1970-01-01",
+					"remark":            "Epoch",
+					"voucher_no":        "123",
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusCreated,
+				expectedError:  "",
+			},
+			{
+				name: "Near Future Date",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              time.Now().AddDate(0, 0, 1).Format("2006-01-02"),
+					"remark":            "Near Future",
 					"voucher_no":        "123",
 					"compound_id":       "benzene",
 					"num_of_units":      10,
 					"quantity_per_unit": 5,
 				},
 				expectedStatus: http.StatusBadRequest,
-				expectedError:  utils.MissingFields_or_inappropriate_value,
+				expectedError:  utils.Future_date_error,
 			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				req := utils.CreateRequest(http.MethodPost, "/insert", tc.requestBody)
+				resp := utils.ExecuteRequest(req, handlers.InsertData)
+				utils.CheckResponseCode(t, tc.expectedStatus, resp.Code)
+				if tc.expectedError != "" {
+					utils.CheckResponseBodyContains(t, tc.expectedError, resp.Body.String())
+				}
+			})
+		}
+	})
+
+	t.Run("Case Sensitivity", func(t *testing.T) {
+		pastDate := "2006-01-02"
+		testCases := []struct {
+			name           string
+			requestBody    map[string]any
+			expectedStatus int
+			expectedError  string
+		}{
 			{
 				name: "Uppercase Type",
 				requestBody: map[string]any{
@@ -414,40 +406,38 @@ func TestInsertData(t *testing.T) {
 		}
 	})
 
-	t.Run("Date Boundary Values", func(t *testing.T) {
+	t.Run("Boundary Values", func(t *testing.T) {
+		pastDate := "2006-01-02"
 		testCases := []struct {
 			name           string
 			requestBody    map[string]any
 			expectedStatus int
-			expectedError  string
 		}{
 			{
-				name: "Epoch Date",
+				name: "Max Int for NumOfUnits",
 				requestBody: map[string]any{
 					"type":              utils.TypeIncoming,
-					"date":              "01-01-1970",
-					"remark":            "Epoch",
+					"date":              pastDate,
+					"remark":            "Max Units",
 					"voucher_no":        "123",
 					"compound_id":       "benzene",
-					"num_of_units":      10,
-					"quantity_per_unit": 5,
+					"num_of_units":      2147483647,
+					"quantity_per_unit": 1,
 				},
-				expectedStatus: http.StatusCreated, // Or appropriate success
-				expectedError:  "",
+				expectedStatus: http.StatusCreated,
 			},
 			{
-				name: "Near Future Date",
+				name: "Max Int for QuantityPerUnit",
 				requestBody: map[string]any{
 					"type":              utils.TypeIncoming,
-					"date":              time.Now().AddDate(0, 0, 1).Format("02-01-2006"),
-					"remark":            "Near Future",
+					"date":              pastDate,
+					"remark":            "Max QPU",
 					"voucher_no":        "123",
 					"compound_id":       "benzene",
-					"num_of_units":      10,
-					"quantity_per_unit": 5,
+					"num_of_units":      1,
+					"quantity_per_unit": 2147483647,
 				},
-				expectedStatus: http.StatusBadRequest,
-				expectedError:  utils.Future_date_error,
+				expectedStatus: http.StatusCreated,
 			},
 		}
 
@@ -456,13 +446,56 @@ func TestInsertData(t *testing.T) {
 				req := utils.CreateRequest(http.MethodPost, "/insert", tc.requestBody)
 				resp := utils.ExecuteRequest(req, handlers.InsertData)
 				utils.CheckResponseCode(t, tc.expectedStatus, resp.Code)
-				utils.CheckResponseBodyContains(t, tc.expectedError, resp.Body.String())
+			})
+		}
+	})
+
+	t.Run("Trailing Whitespace", func(t *testing.T) {
+		pastDate := "2006-01-02"
+		testCases := []struct {
+			name           string
+			requestBody    map[string]any
+			expectedStatus int
+		}{
+			{
+				name: "Trailing Whitespace in Remark",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "Test Remark ",
+					"voucher_no":        "123",
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusCreated,
+			},
+			{
+				name: "Trailing Whitespace in Voucher",
+				requestBody: map[string]any{
+					"type":              utils.TypeIncoming,
+					"date":              pastDate,
+					"remark":            "Test Remark",
+					"voucher_no":        "123 ",
+					"compound_id":       "benzene",
+					"num_of_units":      10,
+					"quantity_per_unit": 5,
+				},
+				expectedStatus: http.StatusCreated,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				req := utils.CreateRequest(http.MethodPost, "/insert", tc.requestBody)
+				resp := utils.ExecuteRequest(req, handlers.InsertData)
+				utils.CheckResponseCode(t, tc.expectedStatus, resp.Code)
 			})
 		}
 	})
 
 	t.Run("Unicode Characters", func(t *testing.T) {
-		pastDate := "01-01-2006"
+		pastDate := "2006-01-02"
 		testCases := []struct {
 			name           string
 			requestBody    map[string]any
@@ -501,54 +534,6 @@ func TestInsertData(t *testing.T) {
 				req := utils.CreateRequest(http.MethodPost, "/insert", tc.requestBody)
 				resp := utils.ExecuteRequest(req, handlers.InsertData)
 				utils.CheckResponseCode(t, tc.expectedStatus, resp.Code)
-			})
-		}
-	})
-
-	t.Run("Trailing Whitespace", func(t *testing.T) {
-		pastDate := "01-01-2006"
-		testCases := []struct {
-			name           string
-			requestBody    map[string]any
-			expectedStatus int
-			expectedError  string
-		}{
-			{
-				name: "Trailing Whitespace in Remark",
-				requestBody: map[string]any{
-					"type":              utils.TypeIncoming,
-					"date":              pastDate,
-					"remark":            "Test Remark  ",
-					"voucher_no":        "123",
-					"compound_id":       "benzene",
-					"num_of_units":      10,
-					"quantity_per_unit": 5,
-				},
-				expectedStatus: http.StatusCreated, // Or handle whitespace trimming
-				expectedError:  "",
-			},
-			{
-				name: "Trailing Whitespace in Voucher",
-				requestBody: map[string]any{
-					"type":              utils.TypeIncoming,
-					"date":              pastDate,
-					"remark":            "Test Remark",
-					"voucher_no":        "123  ",
-					"compound_id":       "benzene",
-					"num_of_units":      10,
-					"quantity_per_unit": 5,
-				},
-				expectedStatus: http.StatusCreated, // Or handle whitespace trimming
-				expectedError:  "",
-			},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.name, func(t *testing.T) {
-				req := utils.CreateRequest(http.MethodPost, "/insert", tc.requestBody)
-				resp := utils.ExecuteRequest(req, handlers.InsertData)
-				utils.CheckResponseCode(t, tc.expectedStatus, resp.Code)
-				utils.CheckResponseBodyContains(t, tc.expectedError, resp.Body.String())
 			})
 		}
 	})

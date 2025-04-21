@@ -34,7 +34,7 @@ func Retry(fn func() error) error {
 
 // Executes the given function and retries it if it fails.
 func UnixTimestamp(dateStr string) (int64, error) {
-	date, err := time.Parse("02-01-2006", dateStr)
+	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
 		return 0, err
 	}
@@ -199,7 +199,7 @@ func CheckIfCompoundExists(compoundId string, w http.ResponseWriter) error {
 
 // Parses and validates the date of the entry. If any errors occur, it will return an error and write the error message to the response writer.
 func ParseAndValidateDate(date string, w http.ResponseWriter) (int64, error) {
-	parsedDate, err := time.Parse("02-01-2006", date)
+	parsedDate, err := time.Parse("2006-01-02", date)
 	if err != nil {
 		logrus.Warnf("Invalid date format provided: %s, error: %v", date, err)
 		JsonRes(w, http.StatusBadRequest, &Resp{Error: Invalid_date_format})
@@ -277,7 +277,6 @@ func CreateRequest(method, url string, body map[string]any) *http.Request {
 	return req
 }
 
-
 func FormatDate(t time.Time) string {
-	return fmt.Sprintf("%02d-%02d-%d", t.Day(), t.Month(), t.Year())
+	return fmt.Sprintf("%d-%02d-%02d", t.Year(), t.Month(), t.Day())
 }

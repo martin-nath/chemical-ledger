@@ -12,7 +12,6 @@ import (
 )
 
 func insertUpdateDataTestData(t *testing.T) error {
-	// TODO: Use insert data route or handler to insert test data for update data route
 	_, err := db.Db.Exec("INSERT INTO quantity (id, num_of_units, quantity_per_unit) VALUES ('qty1', 5, 10)")
 	require.NoError(t, err, "failed to insert test quantity 'qty1'")
 	_, err = db.Db.Exec("INSERT INTO quantity (id, num_of_units, quantity_per_unit) VALUES ('qty2', 2, 20)")
@@ -61,15 +60,15 @@ func TestUpdateData(t *testing.T) {
 	require.NoError(t, err, "failed to insert test data")
 
 	test := []struct {
-		name           string
-		reqBody        map[string]any
+		name string
+		reqBody map[string]any
 		expectedStatus int
 	}{
 		{
 			name: "Update Remark",
 			reqBody: map[string]any{
 				"entry_id": "entry1",
-				"remark":   "Updated remark",
+				"remark": "Updated remark",
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -77,7 +76,7 @@ func TestUpdateData(t *testing.T) {
 			name: "Update Voucher No",
 			reqBody: map[string]any{
 				"entry_id": "entry1",
-				"voucher":  "V002",
+				"voucher": "V002",
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -85,7 +84,7 @@ func TestUpdateData(t *testing.T) {
 			name: "Update Type",
 			reqBody: map[string]any{
 				"entry_id": "entry2",
-				"type":     "incoming",
+				"type": "incoming",
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -93,7 +92,7 @@ func TestUpdateData(t *testing.T) {
 			name: "Update Date",
 			reqBody: map[string]any{
 				"entry_id": "entry3",
-				"date":     "01-02-2004",
+				"date": "2004-02-01",
 			},
 			expectedStatus: http.StatusOK,
 		},

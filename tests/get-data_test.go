@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-
 func insertGetDataTestData(t *testing.T) error {
 	_, err := db.Db.Exec("INSERT INTO quantity (id, num_of_units, quantity_per_unit) VALUES ('qty1', 5, 10)")
 	require.NoError(t, err, "failed to insert test quantity 'qty1'")
@@ -58,7 +57,6 @@ func insertGetDataTestData(t *testing.T) error {
 	return nil
 }
 
-// createRequest creates a new http.Request with the given method, url, and optional body.
 func createRequest(method, url string, body map[string]any) *http.Request {
 	var reqBody []byte
 	var err error
@@ -407,7 +405,6 @@ func TestGetData(t *testing.T) {
 
 	for _, tc := range test {
 		t.Run(tc.name, func(t *testing.T) {
-			// Construct the URL with query parameters
 			baseURL := "/fetch"
 			u, err := url.Parse(baseURL)
 			require.NoError(t, err, "failed to parse base URL")

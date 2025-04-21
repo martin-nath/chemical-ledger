@@ -1,15 +1,20 @@
 package utils
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"os"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/martin-nath/chemical-ledger/db"
+	"github.com/martin-nath/chemical-ledger/migrate"
 	"github.com/sirupsen/logrus"
 )
 
@@ -226,4 +231,52 @@ func ValidateReqMethod(reqMethod string, expectedMethod string, w http.ResponseW
 		return errors.New("invalid request method")
 	}
 	return nil
+}
+
+func SetupTestDB() {
+	db.InitDB("test.db")
+	if err := migrate.CreateTables(db.Db); err != nil {
+		panic("Failed to create tables: " + err.Error())
+	}
+}
+
+func TeardownTestDB() {
+	defer func() {
+		db.Db.Close()
+		os.Remove("test.db")
+	}()
+	err := migrate.DropTables(db.Db)
+	if err != nil {
+		panic("Failed to drop tables: " + err.Error())
+	}
+}
+
+func ExecuteRequest(req *http.Request, handler http.HandlerFunc) *httptest.ResponseRecorder {
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	return rr
+}
+
+func CheckResponseCode(t *testing.T, expected, actual int) {
+	if expected != actual {
+		t.Errorf("Expected response code %d, got %d", expected, actual)
+	}
+}
+
+func CheckResponseBodyContains(t *testing.T, expectedSubstring string, actualBody string) {
+	if !strings.Contains(actualBody, expectedSubstring) {
+		t.Errorf("Expected response body to contain '%s', \n but got '%s'", expectedSubstring, actualBody)
+	}
+}
+
+func CreateRequest(method, url string, body map[string]any) *http.Request {
+	reqBody, _ := json.Marshal(body)
+	req := httptest.NewRequest(method, url, bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	return req
+}
+
+
+func FormatDate(t time.Time) string {
+	return fmt.Sprintf("%02d-%02d-%d", t.Day(), t.Month(), t.Year())
 }

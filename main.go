@@ -10,22 +10,35 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Access-Control-Max-Age", "300")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	logFile, err := os.OpenFile("app.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		logrus.Fatal(err)
+		logrus.SetOutput(os.Stderr)
+		logrus.Fatalf("Failed to open log file: %v", err)
 	}
-	defer logFile.Close() // Ensure the file is closed when the application exits
+	defer logFile.Close()
 
-	// Set the output of logrus to the file
 	logrus.SetOutput(logFile)
-
-	// Optionally, you can set the log format (e.g., JSON)
 	logrus.SetFormatter(&logrus.JSONFormatter{})
+	logrus.SetLevel(logrus.InfoLevel)
 
-	// Parse command-line flags
-
-	// Initialize the database
 	db.InitDB("./chemical_ledger.db")
 	defer db.Db.Close()
 
@@ -39,15 +52,18 @@ func main() {
 	}
 	logrus.Info("Tables created successfully!")
 
-	// Set up routes
-	http.HandleFunc("/insert", handlers.InsertData) // POST /transaction
-	http.HandleFunc("/fetch", handlers.GetData)     // GET /transactions
+	handlers.SetDatabase(db.Db)
+
+	http.HandleFunc("/insert", handlers.InsertData)
+	http.HandleFunc("/fetch", handlers.GetData)
 	http.HandleFunc("/update", handlers.UpdateData)
 	http.HandleFunc("/compound", handlers.CompoundName)
 
-	// Start the server
-	logrus.Info("Server is running on http://localhost:8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	handler := corsMiddleware(http.DefaultServeMux)
+
+	port := "8080"
+	logrus.Infof("Server is running on http://localhost:%s", port)
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		logrus.Fatalf("Server failed to start: %v", err)
 	}
 }

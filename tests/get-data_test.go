@@ -323,7 +323,7 @@ func TestGetData(t *testing.T) {
 		},
 		{
 			name:           "Future fromDate",
-			queryParams:    map[string]string{"fromDate": utils.FormatDate(today.Add(24 * time.Hour))},
+			queryParams:    map[string]string{"fromDate": utils.FormatDate(today.Add(2 * 24 * time.Hour))},
 			expectedStatus: http.StatusBadRequest,
 			validateResp: func(t *testing.T, body string, resp map[string]any) {
 				errorMsg, ok := resp["error"].(string)

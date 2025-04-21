@@ -18,8 +18,9 @@ type Compound struct {
 }
 
 type CompoundInfo struct {
-	Name string `json:"name"`
-	Key  string `json:"key"`
+	Name  string `json:"name"`
+	Key   string `json:"key"`
+	Scale string `json:"scale"`
 }
 
 func parseCompoundQuery(r *http.Request) Compound {
@@ -84,13 +85,13 @@ func CompoundName(w http.ResponseWriter, r *http.Request) {
 	var dataQuery string
 	if compoundQuery.Type == "entry" {
 		dataQuery = `
-			SELECT DISTINCT c.name, c.id
+			SELECT DISTINCT c.name, c.scale, c.id
 			FROM entry e
 			JOIN compound c ON e.compound_id = c.id;
 		`
 	} else {
 		dataQuery = `
-			SELECT name, id
+			SELECT name, scale, id
 			FROM compound;
 		`
 	}
@@ -108,7 +109,7 @@ func CompoundName(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		var compoundInfo CompoundInfo
-		err := rows.Scan(&compoundInfo.Name, &compoundInfo.Key)
+		err := rows.Scan(&compoundInfo.Name, &compoundInfo.Scale, &compoundInfo.Key)
 		if err != nil {
 			utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{Error: "Failed to process compound data."})
 			rows.Close()

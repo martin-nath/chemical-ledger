@@ -200,7 +200,11 @@ func CheckIfCompoundExists(compoundId string, w http.ResponseWriter) error {
 
 // Parses and validates the date of the entry. If any errors occur, it will return an error and write the error message to the response writer.
 func ParseAndValidateDate(date string, w http.ResponseWriter) (int64, error) {
-	parsedDate, err := time.Parse("2006-01-02", date)
+	now := time.Now().Local()
+	dateTimeString := fmt.Sprintf("%sT%02d:%02d:%02d+05:30", // Assuming IST
+		date, now.Hour(), now.Minute(), now.Second())
+
+	parsedDate, err := time.Parse(time.RFC3339, dateTimeString)
 	if err != nil {
 		logrus.Warnf("Invalid date format provided: %s, error: %v", date, err)
 		JsonRes(w, http.StatusBadRequest, &Resp{Error: Invalid_date_format})

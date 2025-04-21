@@ -234,6 +234,7 @@ func ValidateReqMethod(reqMethod string, expectedMethod string, w http.ResponseW
 }
 
 func SetupTestDB() {
+	os.Remove("test.db")
 	db.InitDB("test.db")
 	if err := migrate.CreateTables(db.Db); err != nil {
 		panic("Failed to create tables: " + err.Error())

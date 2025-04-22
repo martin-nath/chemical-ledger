@@ -148,8 +148,8 @@ WHERE 1=1`)
 		filterArgs = append(filterArgs, filters.Type)
 	}
 	if filters.CompoundName != "" && filters.CompoundName != "all" {
-		queryBuilder.WriteString(" AND c.name = ?")
-		countQueryBuilder.WriteString(" AND c.name = ?")
+		queryBuilder.WriteString(" AND e.compound_id = ?")
+		countQueryBuilder.WriteString(" AND e.compound_id = ?")
 		filterArgs = append(filterArgs, filters.CompoundName)
 	}
 	if fromDate > 0 {

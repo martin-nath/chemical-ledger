@@ -79,6 +79,14 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defer func() {
+		if rbe := dbTx.Rollback(); rbe != nil && rbe != sql.ErrTxDone {
+			logrus.Errorf("Error during deferred transaction rollback: %v", rbe)
+		} else if rbe == nil {
+			logrus.Debug("Deferred transaction rollback executed.")
+		}
+	}()
+
 	_, entryID, err := insertEntryData(dbTx, entry, entryDate, currentStock, w)
 	if err != nil {
 		return

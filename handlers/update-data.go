@@ -3,7 +3,6 @@ package handlers
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
 	"sync"
 
@@ -72,7 +71,6 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logrus.Errorf("Error checking stock before compound ID change for new compound '%s': %v", entry.CompoundId, err)
 			utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{Error: utils.Stock_retrieval_error})
-			// Transaction will be implicitly rolled back
 			return
 		}
 
@@ -135,11 +133,8 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 
 	wg.Wait()
 
-	fmt.Println("Committing transaction...")
 	err = utils.CommitDbTx(dbTx, w)
-	fmt.Println("Transaction committed.")
 	if err != nil {
-		fmt.Println("Error committing transaction.")
 		logrus.Errorf("Error committing transaction: %v", err)
 		utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{Error: utils.Save_entry_details_error})
 		return

@@ -4,12 +4,12 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/martin-nath/chemical-ledger/db"
 	"github.com/martin-nath/chemical-ledger/utils"
 	"github.com/sirupsen/logrus"
 )
-
 
 func GetData(w http.ResponseWriter, r *http.Request) {
 	if err := utils.ValidateReqMethod(r.Method, http.MethodGet, w); err != nil {
@@ -29,7 +29,7 @@ func GetData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fromDate, toDate, err := parseAndValidateDateRangeGetData(w, filters)
+	fromDate, toDate, err := parseAndValidateDateRangeGetData(filters.FromDate , filters.ToDate, w)
 	if err != nil {
 		return
 	}
@@ -76,32 +76,48 @@ func validateGetDataFilterType(w http.ResponseWriter, filters *utils.Filters) er
 }
 
 // parseAndValidateDateRangeGetData parses and validates the fromDate and toDate filters and writes error responses.
-func parseAndValidateDateRangeGetData(w http.ResponseWriter, filters *utils.Filters) (int64, int64, error) {
-	var fromDate int64
-	var toDate int64
-	var err error
+func parseAndValidateDateRangeGetData(fromDate string, toDate string, w http.ResponseWriter) (int64, int64, error) {
+	var fromTime time.Time
+	var toTime time.Time
 
-	if filters.FromDate != "" {
-		fromDate, err = utils.ParseAndValidateDate(filters.FromDate, w)
-		if err != nil {
-			return 0, 0, err
-		}
+	var fromDateUnix int64
+	var toDateUnix int64 
+
+	const combinedDateTimeLayout = "2006-01-02 15:04:05"
+
+	istLocation, err := time.LoadLocation("Asia/Kolkata")
+	if err != nil {
+		logrus.Errorf("Failed to load IST location 'Asia/Kolkata': %v", err)
+		utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{Error: "internal server error"})
+		return 0, 0, errors.New("failed to load timezone location")
 	}
 
-	if filters.ToDate != "" {
-		toDate, err = utils.ParseAndValidateDate(filters.ToDate, w)
+	if fromDate != "" {
+		fromDateCombinedStr := fromDate + " 00:00:00"
+		parsedFromDate, err := time.ParseInLocation(combinedDateTimeLayout, fromDateCombinedStr, istLocation)
 		if err != nil {
-			return 0, 0, err
+			logrus.Warnf("Invalid fromDate format after combining: %s, error: %v", fromDateCombinedStr, err)
+			utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{Error: "Invalid date range: 'fromDate' is invalid."})
+			return 0, 0, errors.New("invalid fromDate format or combined string")
 		}
-		if filters.FromDate != "" && toDate < fromDate {
-			utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{Error: "Invalid date range: 'toDate' cannot be earlier than 'fromDate'."})
-			logrus.Warn("Invalid date range provided.")
-			return 0, 0, errors.New("invalid date range")
-		}
+		fromTime = parsedFromDate
+		fromDateUnix = fromTime.Unix()
 	}
-	return fromDate, toDate, nil
+
+	if toDate != "" {
+		toDateCombinedStr := toDate + " 23:59:59"
+		parsedToDate, err := time.ParseInLocation(combinedDateTimeLayout, toDateCombinedStr, istLocation)
+		if err != nil {
+			logrus.Warnf("Invalid toDate format after combining: %s, error: %v", toDateCombinedStr, err)
+			utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{Error: "Invalid date range: 'toDate' is invalid."})
+			return 0, 0, errors.New("invalid toDate format or combined string")
+		}
+		toTime = parsedToDate
+		toDateUnix = toTime.Unix()
+	}
+
+	return fromDateUnix, toDateUnix, nil
 }
-
 // buildGetDataQueries constructs the SQL query and count query based on the filters.
 func buildGetDataQueries(filters *utils.Filters, fromDate int64, toDate int64) (string, string, []any) {
 	queryBuilder := strings.Builder{}

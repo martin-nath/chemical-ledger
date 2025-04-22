@@ -223,7 +223,7 @@ func TestGetData(t *testing.T) {
 			name: "Combined filters (type and compound)",
 			queryParams: map[string]string{
 				"type":     "incoming",
-				"compound": "Ethanol",
+				"compound": "ethanol",
 			},
 			expectedStatus: http.StatusOK,
 			validateResp: func(t *testing.T, body string, resp map[string]any) {

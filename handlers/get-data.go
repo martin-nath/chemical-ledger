@@ -128,7 +128,7 @@ func buildGetDataQueries(filters *utils.Filters, fromDate int64, toDate int64) (
 SELECT
 	e.id, e.type, datetime(e.date, 'unixepoch', 'localtime') AS formatted_date,
 	e.remark, e.voucher_no, e.net_stock,
-	c.name, c.scale,
+	c.id, c.name, c.scale,
 	q.num_of_units, q.quantity_per_unit
 FROM entry as e
 JOIN compound as c ON e.compound_id = c.id
@@ -198,7 +198,7 @@ func executeGetDataQuery(w http.ResponseWriter, queryStr string, filterArgs []an
 		err := rows.Scan(
 			&e.ID, &e.Type, &e.Date,
 			&e.Remark, &e.VoucherNo, &e.NetStock,
-			&e.CompoundName, &e.Scale,
+			&e.CompoundId,&e.CompoundName, &e.Scale,
 			&e.NumOfUnits, &e.QuantityPerUnit,
 		)
 		if err != nil {

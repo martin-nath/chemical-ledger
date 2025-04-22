@@ -26,7 +26,7 @@ type Filters struct {
 
 // Entry represents a stock entry.
 type Entry struct {
-	ID              string `json:"entry_id"`
+	ID              string `json:"id"`
 	Type            string `json:"type"`
 	Date            string `json:"date"`
 	Remark          string `json:"remark"`
@@ -41,6 +41,7 @@ type GetEntry struct {
 	ID              string `json:"id"`
 	Date            string `json:"date"`
 	Type            string `json:"type"`
+	CompoundId      string `json:"compound_id"`
 	CompoundName    string `json:"compound_name"`
 	Scale           string `json:"scale"`
 	Remark          string `json:"remark"`

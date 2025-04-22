@@ -68,39 +68,39 @@ func TestUpdateData(t *testing.T) {
 		{
 			name: "Basic Update Remark",
 			reqBody: map[string]any{
-				"entry_id": "entry1",         // string
-				"remark":   "Updated remark", // string
+				"id":     "entry1",         // string
+				"remark": "Updated remark", // string
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "Basic Update Voucher No",
 			reqBody: map[string]any{
-				"entry_id": "entry1",       // string
-				"voucher":  "V002_updated", // string
+				"id":      "entry1",       // string
+				"voucher": "V002_updated", // string
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "Basic Update Type",
 			reqBody: map[string]any{
-				"entry_id": "entry2",   // string
-				"type":     "incoming", // string
+				"id":   "entry2",   // string
+				"type": "incoming", // string
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "Basic Update Date",
 			reqBody: map[string]any{
-				"entry_id": "entry3",     // string
-				"date":     "2023-10-26", // string (expected date format)
+				"id":   "entry3",     // string
+				"date": "2023-10-26", // string (expected date format)
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "Basic Update Compound ID",
 			reqBody: map[string]any{
-				"entry_id":    "entry1",  // string
+				"id":          "entry1",  // string
 				"compound_id": "benzene", // string
 			},
 			expectedStatus: http.StatusOK,
@@ -108,7 +108,7 @@ func TestUpdateData(t *testing.T) {
 		{
 			name: "Basic Update NumOfUnits",
 			reqBody: map[string]any{
-				"entry_id":     "entry2", // string
+				"id":           "entry2", // string
 				"num_of_units": 10,       // int
 			},
 			expectedStatus: http.StatusOK,
@@ -116,76 +116,76 @@ func TestUpdateData(t *testing.T) {
 		{
 			name: "Basic Update QuantityPerUnit",
 			reqBody: map[string]any{
-				"entry_id":          "entry2", // string
-				"quantity_per_unit": 25,    
+				"id":                "entry2", // string
+				"quantity_per_unit": 25,
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "Update Multiple Entry Fields",
 			reqBody: map[string]any{
-				"entry_id": "entry1",                  // string
-				"remark":   "Updated remark multiple", // string
-				"voucher":  "V001_multi",              // string
-				"date":     "2024-01-15",              // string (expected date format)
+				"id":      "entry1",                  // string
+				"remark":  "Updated remark multiple", // string
+				"voucher": "V001_multi",              // string
+				"date":    "2024-01-15",              // string (expected date format)
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "Update Multiple Quantity Fields",
 			reqBody: map[string]any{
-				"entry_id":          "entry2", // string
+				"id":                "entry2", // string
 				"num_of_units":      5,        // int
-				"quantity_per_unit": 50,     
+				"quantity_per_unit": 50,
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "Update Mixed Entry and Quantity Fields",
 			reqBody: map[string]any{
-				"entry_id":          "entry3",            // string
+				"id":                "entry3",            // string
 				"remark":            "Mixed update test", // string
 				"num_of_units":      1,                   // int
-				"quantity_per_unit": 100,               
+				"quantity_per_unit": 100,
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "Update Non-Existent Entry",
 			reqBody: map[string]any{
-				"entry_id": "nonexistent_entry", // string
-				"remark":   "This should fail",  // string
+				"id":     "nonexistent_entry", // string
+				"remark": "This should fail",  // string
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Update with Invalid Type",
 			reqBody: map[string]any{
-				"entry_id": "entry1",       // string
-				"type":     "invalid_type", // string
+				"id":   "entry1",       // string
+				"type": "invalid_type", // string
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Update with Invalid Date Format",
 			reqBody: map[string]any{
-				"entry_id": "entry1",     // string
-				"date":     "2023/10/26", // string (invalid date format)
+				"id":   "entry1",     // string
+				"date": "2023/10/26", // string (invalid date format)
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Update with Invalid Date Value",
 			reqBody: map[string]any{
-				"entry_id": "entry1",              // string
-				"date":     "invalid-date-string", // string (invalid date value)
+				"id":   "entry1",              // string
+				"date": "invalid-date-string", // string (invalid date value)
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Update with Invalid NumOfUnits (Negative)",
 			reqBody: map[string]any{
-				"entry_id":     "entry2", // string
+				"id":           "entry2", // string
 				"num_of_units": -5,       // int (negative value)
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -193,7 +193,7 @@ func TestUpdateData(t *testing.T) {
 		{
 			name: "Update with Invalid NumOfUnits (Non-integer type)",
 			reqBody: map[string]any{
-				"entry_id":     "entry2", // string
+				"id":           "entry2", // string
 				"num_of_units": "abc",    // string (incorrect type)
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -201,15 +201,15 @@ func TestUpdateData(t *testing.T) {
 		{
 			name: "Update with Invalid QuantityPerUnit (Negative)",
 			reqBody: map[string]any{
-				"entry_id":          "entry2", // string
-				"quantity_per_unit": -10,    // (negative value)
+				"id":                "entry2", // string
+				"quantity_per_unit": -10,      // (negative value)
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name: "Update with Invalid QuantityPerUnit (Non-numeric type)",
 			reqBody: map[string]any{
-				"entry_id":          "entry2", // string
+				"id":                "entry2", // string
 				"quantity_per_unit": "xyz",    // string (incorrect type)
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -217,7 +217,7 @@ func TestUpdateData(t *testing.T) {
 		{
 			name: "Update with Invalid Compound ID Type (Number instead of string)",
 			reqBody: map[string]any{
-				"entry_id":    "entry1", // string
+				"id":          "entry1", // string
 				"compound_id": 12345,    // int (incorrect type)
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -237,16 +237,16 @@ func TestUpdateData(t *testing.T) {
 		{
 			name: "Update with Empty Remark String",
 			reqBody: map[string]any{
-				"entry_id": "entry1", // string
-				"remark":   "",       // string (empty)
+				"id":     "entry1", // string
+				"remark": "",       // string (empty)
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "Update with Empty Voucher String",
 			reqBody: map[string]any{
-				"entry_id": "entry1", // string
-				"voucher":  "",
+				"id":      "entry1", // string
+				"voucher": "",
 			},
 			expectedStatus: http.StatusOK,
 		},

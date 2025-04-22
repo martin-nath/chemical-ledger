@@ -142,7 +142,7 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 
 	utils.JsonRes(w, http.StatusOK, &utils.Resp{
 		Message: utils.Entry_updated_successfully,
-		Data:    map[string]any{"entry_id": entry.ID},
+		Data:    map[string]any{"id": entry.ID},
 	})
 }
 

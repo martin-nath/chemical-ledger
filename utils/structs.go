@@ -70,8 +70,3 @@ type Resp struct {
 	Message string `json:"message,omitempty"`
 }
 
-// Compound represents a chemical compound stored in the database.
-type Compound struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}

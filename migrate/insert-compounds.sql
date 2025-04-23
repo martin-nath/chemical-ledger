@@ -149,7 +149,7 @@ INSERT INTO compound (id, name, scale) VALUES
 ('mesBuffer', 'MES buffer', 'mg'),
 ('methanol', 'Methanol', 'ml'),
 ('methanolamine', 'Methanolamine', 'ml'),
-('methylOrange', 'Methyl orange', 'mg'),
+('methylOrange', 'Methyl orange', 'ml'),
 ('methylOrangeXyleneCyanol', 'Methyl orange - Xylene Cyanol', 'mg'),
 ('methylRed', 'Methyl red', 'mg'),
 ('methylSalicylate', 'Methyl salicylate', 'ml'),
@@ -262,4 +262,5 @@ INSERT INTO compound (id, name, scale) VALUES
 ('zirconium', 'Zirconium', 'mg'),
 ('alphaNaphtholbenzein', 'α-Naphtholbenzein', 'mg'),
 ('alphaNaphtholphthalein', 'α-Naphtholphthalein', 'mg'),
-('alphaNaphthylRed', 'α-Naphthyl red', 'mg');
+('alphaNaphthylRed', 'α-Naphthyl red', 'mg')
+ON CONFLICT (id) DO NOTHING;

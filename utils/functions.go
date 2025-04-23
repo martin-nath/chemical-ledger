@@ -268,13 +268,6 @@ func TeardownTestDB() {
 			log.Println("Test database file did not exist or was already removed.")
 		}
 	}()
-
-	log.Println("Attempting to drop test database tables...")
-	err := migrate.DropTables(db.Db)
-	if err != nil {
-		panic("Failed to drop tables: " + err.Error())
-	}
-	log.Println("Test database tables dropped successfully.")
 }
 
 func ExecuteRequest(req *http.Request, handler http.HandlerFunc) *httptest.ResponseRecorder {

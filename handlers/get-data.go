@@ -198,7 +198,7 @@ func executeGetDataQuery(w http.ResponseWriter, queryStr string, filterArgs []an
 		err := rows.Scan(
 			&e.ID, &e.Type, &e.Date,
 			&e.Remark, &e.VoucherNo, &e.NetStock,
-			&e.CompoundId,&e.CompoundName, &e.Scale,
+			&e.CompoundId, &e.CompoundName, &e.Scale,
 			&e.NumOfUnits, &e.QuantityPerUnit,
 		)
 		if err != nil {

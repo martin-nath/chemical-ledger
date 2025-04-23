@@ -42,10 +42,6 @@ func main() {
 	db.InitDB("./chemical_ledger.db")
 	defer db.Db.Close()
 
-	if err := migrate.DropTables(db.Db); err != nil {
-		logrus.Fatalf("Failed to drop tables: %v", err)
-	}
-	logrus.Info("Tables dropped successfully!")
 
 	if err := migrate.CreateTables(db.Db); err != nil {
 		logrus.Fatalf("Failed to create tables: %v", err)

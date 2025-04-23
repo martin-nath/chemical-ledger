@@ -23,16 +23,3 @@ func CreateTables(db *sql.DB) error {
 	return nil
 }
 
-// DropTables drops the `chemicals` and `transactions` tables
-func DropTables(db *sql.DB) error {
-	if _, err := db.Exec("DROP TABLE IF EXISTS compound;"); err != nil {
-		return fmt.Errorf("failed to drop compound table: %w", err)
-	}
-	if _, err := db.Exec("DROP TABLE IF EXISTS quantity;"); err != nil {
-		return fmt.Errorf("failed to drop quantity table: %w", err)
-	}
-	if _, err := db.Exec("DROP TABLE IF EXISTS entry;"); err != nil {
-		return fmt.Errorf("failed to drop entry table: %w", err)
-	}
-	return nil
-}

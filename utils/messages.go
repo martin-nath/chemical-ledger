@@ -20,4 +20,5 @@ const (
 	Entry_inserted_successfully          = "Your entry has been successfully saved."
 	Entry_updated_successfully           = "Entry updated successfully."
 	Internal_server_error                = "A system error has occurred. Please try again later."
+	Invalid_date_range                   = "Invalid date range: 'From' date cannot be after 'To' date."
 )

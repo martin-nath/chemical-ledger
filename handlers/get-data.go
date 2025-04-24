@@ -117,7 +117,7 @@ func parseAndValidateDateRangeGetData(fromDate string, toDate string, w http.Res
 
 	if fromDateUnix > 0 && toDateUnix > 0 && fromDateUnix > toDateUnix {
 		logrus.Warnf("Invalid date range: 'fromDate' (%s) after 'toDate' (%s)", fromDate, toDate)
-		utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{Error: "Invalid date range: 'fromDate' cannot be after 'toDate'."})
+		utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{Error: utils.Invalid_date_range})
 		return 0, 0, errors.New("invalid date range")
 	}
 

@@ -47,8 +47,6 @@ func main() {
 	}
 	logrus.Info("Tables created successfully!")
 
-	handlers.SetDatabase(db.Db)
-
 	http.HandleFunc("/insert", handlers.InsertData)
 	http.HandleFunc("/fetch", handlers.GetData)
 	http.HandleFunc("/update", handlers.UpdateData)

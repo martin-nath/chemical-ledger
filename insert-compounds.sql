@@ -1,5 +1,4 @@
 INSERT INTO compound (id, name, scale) VALUES
-('dinitrophenol', '2,4-Dinitrophenol', 'mg'),
 ('aceticAcid', 'Acetic Acid', 'ml'),
 ('aceticAnhydride', 'Acetic Anhydride', 'ml'),
 ('acetone', 'Acetone', 'ml'),
@@ -80,7 +79,8 @@ INSERT INTO compound (id, name, scale) VALUES
 ('cyclohexanol', 'Cyclohexanol', 'ml'),
 ('cyclohexanone', 'Cyclohexanone', 'ml'),
 ('cyclohexylamine', 'Cyclohexylamine', 'ml'),
-('dessMartinPeriodinane', 'Dess–Martin Periodinane', 'mg'),
+('dessMartinPeriodinane', 'Dess-Martin Periodinane', 'mg'),
+('dinitrophenol', 'Dinitrophenol', 'mg'),
 ('diazoViolet', 'Diazo Violet', 'mg'),
 ('diborane', 'Diborane', 'ml'),
 ('dichlorofluorescein', 'Dichlorofluorescein', 'mg'),
@@ -259,8 +259,4 @@ INSERT INTO compound (id, name, scale) VALUES
 ('zincChloride', 'Zinc Chloride', 'mg'),
 ('zincNitrate', 'Zinc Nitrate', 'mg'),
 ('zincSulfate', 'Zinc Sulfate', 'mg'),
-('zirconium', 'Zirconium', 'mg'),
-('alphaNaphtholbenzein', 'Α-Naphtholbenzein', 'mg'),
-('alphaNaphtholphthalein', 'Α-Naphtholphthalein', 'mg'),
-('alphaNaphthylRed', 'Α-Naphthyl Red', 'mg')
-ON CONFLICT (id) DO NOTHING;
+('zirconium', 'Zirconium', 'mg');

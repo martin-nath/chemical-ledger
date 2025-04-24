@@ -19,7 +19,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Executes the given function and retries it if it fails.
+// Retry executes the given function and retries it if it returns an error.
+// It retries up to the number of times defined by MaxRetries with a delay of RetryDelay between retries.
 func Retry(fn func() error) error {
 	var err error
 	for i := range MaxRetries {
@@ -33,7 +34,9 @@ func Retry(fn func() error) error {
 	return err
 }
 
-// Executes the given function and retries it if it fails.
+// UnixTimestamp converts a date string in "YYYY-MM-DD" format to a Unix timestamp.
+// It combines the provided date with the current time's hour, minute, and second in the local timezone.
+// Returns the Unix timestamp and nil error on success, or 0 and an error on failure.
 func UnixTimestamp(dateStr string) (int64, error) {
 	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -48,14 +51,17 @@ func UnixTimestamp(dateStr string) (int64, error) {
 	return combined.Unix(), nil
 }
 
-// Helper function to send a JSON response to the client.
+// JsonRes sends a JSON response to the client with the specified HTTP status code and response object.
+// It sets the "Content-Type" header to "application/json" before encoding the response.
 func JsonRes(w http.ResponseWriter, status int, resObj *Resp) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(resObj)
 }
 
-// Helper function to decode a JSON request body. If any errors occur, it will return an error and write the error message to the response writer.
+// JsonReq decodes the JSON request body into the provided destination struct.
+// If the decoding fails, it logs the error and sends a 400 Bad Request response with a generic error message.
+// Returns nil on successful decoding, or an error if decoding fails.
 func JsonReq(r *http.Request, dst any, w http.ResponseWriter) error {
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
 		logrus.Errorf("Error decoding JSON request body: %v", err)
@@ -65,7 +71,9 @@ func JsonReq(r *http.Request, dst any, w http.ResponseWriter) error {
 	return nil
 }
 
-// Updates the net stock of subsequent entries for a given compound from the given date till today.
+// UpdateSubSequentNetStock updates the net stock of all subsequent entries for a given compound starting from the specified date.
+// It retrieves the stock level before the given entry date and then iterates through subsequent entries, updating their net stock based on their type and quantity.
+// It performs these operations within the provided database transaction.
 func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, w http.ResponseWriter) error {
 	var previousStock int
 	err := Retry(func() error {
@@ -87,18 +95,18 @@ func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, 
 	err = Retry(func() error {
 		var queryErr error
 		rows, queryErr = dbTx.Query(`
-				SELECT
-					e.id AS entry_id,
-					e.type AS entry_type,
-					q.num_of_units * q.quantity_per_unit AS quantity,
-					e.date AS entry_date
-				FROM entry e
-				JOIN quantity q ON e.quantity_id = q.id
-				WHERE
-					e.compound_id = ? AND e.date >= ?
-				ORDER BY
-					e.date ASC
-			`, compoundId, entryDate)
+			SELECT
+				e.id AS entry_id,
+				e.type AS entry_type,
+				q.num_of_units * q.quantity_per_unit AS quantity,
+				e.date AS entry_date
+			FROM entry e
+			JOIN quantity q ON e.quantity_id = q.id
+			WHERE
+				e.compound_id = ? AND e.date >= ?
+			ORDER BY
+				e.date ASC
+		`, compoundId, entryDate)
 		return queryErr
 	})
 
@@ -153,7 +161,9 @@ func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, 
 	return nil
 }
 
-// Begins a database transaction. If any errors occur, it will return an error and write the error message to the response writer.
+// BeginDbTx starts a new database transaction.
+// It retries the operation based on the Retry policy.
+// Returns the transaction object and nil error on success, or nil and an error on failure.
 func BeginDbTx(w http.ResponseWriter) (*sql.Tx, error) {
 	var dbTx *sql.Tx
 	err := Retry(func() error {
@@ -170,7 +180,9 @@ func BeginDbTx(w http.ResponseWriter) (*sql.Tx, error) {
 	return dbTx, nil
 }
 
-// Helper function to commit a database transaction. If any errors occur, it will return an error and write the error message to the response writer.
+// CommitDbTx commits the given database transaction.
+// If the commit fails, it logs the error and sends a 500 Internal Server Error response.
+// Returns nil on successful commit, or an error if the commit fails.
 func CommitDbTx(dbTx *sql.Tx, w http.ResponseWriter) error {
 	if err := dbTx.Commit(); err != nil {
 		logrus.Errorf("Error committing database transaction: %v", err)
@@ -181,7 +193,9 @@ func CommitDbTx(dbTx *sql.Tx, w http.ResponseWriter) error {
 	return nil
 }
 
-// Checks if the compound exists. If any errors occur, it will return an error and write the error message to the response writer.
+// CheckIfCompoundExists checks if a compound with the given ID exists in the database.
+// If the compound does not exist, it logs a warning and sends a 404 Not Found response.
+// Returns nil if the compound exists, or an error if it doesn't or if there's a database error.
 func CheckIfCompoundExists(compoundId string, w http.ResponseWriter) error {
 	var compoundExists bool
 	if err := db.Db.QueryRow("SELECT EXISTS(SELECT 1 FROM compound WHERE id = ?)", compoundId).Scan(&compoundExists); err != nil {
@@ -198,7 +212,10 @@ func CheckIfCompoundExists(compoundId string, w http.ResponseWriter) error {
 	return nil
 }
 
-// Parses and validates the date of the entry. If any errors occur, it will return an error and write the error message to the response writer.
+// ParseAndValidateDate parses a date string in "YYYY-MM-DD" format and validates it.
+// It combines the input date with the current time (IST) and checks if the resulting time is in the future.
+// It also converts the valid date to a Unix timestamp.
+// Returns the Unix timestamp and nil error for a valid, non-future date, or 0 and an error otherwise.
 func ParseAndValidateDate(date string, w http.ResponseWriter) (int64, error) {
 	now := time.Now().Local()
 	dateTimeString := fmt.Sprintf("%sT%02d:%02d:%02d+05:30", // Assuming IST
@@ -228,7 +245,9 @@ func ParseAndValidateDate(date string, w http.ResponseWriter) (int64, error) {
 	return entryDate, nil
 }
 
-// Validates the request method. If any errors occur, it will return an error and write the error message to the response writer.
+// ValidateReqMethod checks if the HTTP request method matches the expected method.
+// If the methods do not match, it logs a warning and sends a 405 Method Not Allowed response.
+// Returns nil if the method is valid, or an error otherwise.
 func ValidateReqMethod(reqMethod string, expectedMethod string, w http.ResponseWriter) error {
 	if reqMethod != expectedMethod {
 		logrus.Warnf("Invalid request method provided: %s", reqMethod)
@@ -238,6 +257,9 @@ func ValidateReqMethod(reqMethod string, expectedMethod string, w http.ResponseW
 	return nil
 }
 
+// SetupTestDB initializes an in-memory SQLite database for testing purposes.
+// It removes any existing "test.db" file, initializes the database connection, and creates the necessary tables using the migrate package.
+// Panics if table creation fails.
 func SetupTestDB() {
 	os.Remove("test.db")
 	db.InitDB("test.db")
@@ -246,6 +268,8 @@ func SetupTestDB() {
 	}
 }
 
+// TeardownTestDB closes the test database connection and removes the "test.db" file.
+// It handles potential errors during closing and removal, logging them but not returning them.
 func TeardownTestDB() {
 	defer func() {
 		if db.Db != nil {
@@ -270,24 +294,32 @@ func TeardownTestDB() {
 	}()
 }
 
+// ExecuteRequest creates a new ResponseRecorder and serves the HTTP request using the provided handler function.
+// Returns the ResponseRecorder containing the result of the handler execution.
 func ExecuteRequest(req *http.Request, handler http.HandlerFunc) *httptest.ResponseRecorder {
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 	return rr
 }
 
+// CheckResponseCode checks if the actual HTTP response code matches the expected code.
+// It uses t.Errorf to report a test failure if the codes do not match.
 func CheckResponseCode(t *testing.T, expected, actual int) {
 	if expected != actual {
 		t.Errorf("Expected response code %d, got %d", expected, actual)
 	}
 }
 
+// CheckResponseBodyContains checks if the actual response body string contains the expected substring.
+// It uses t.Errorf to report a test failure if the substring is not found.
 func CheckResponseBodyContains(t *testing.T, expectedSubstring string, actualBody string) {
 	if !strings.Contains(actualBody, expectedSubstring) {
 		t.Errorf("Expected response body to contain '%s', \n but got '%s'", expectedSubstring, actualBody)
 	}
 }
 
+// CreateRequest creates a new HTTP request with the specified method, URL, and JSON body.
+// It sets the "Content-Type" header to "application/json".
 func CreateRequest(method, url string, body map[string]any) *http.Request {
 	reqBody, _ := json.Marshal(body)
 	req := httptest.NewRequest(method, url, bytes.NewBuffer(reqBody))
@@ -295,6 +327,7 @@ func CreateRequest(method, url string, body map[string]any) *http.Request {
 	return req
 }
 
+// FormatDate formats a time.Time object into a "YYYY-MM-DD" string.
 func FormatDate(t time.Time) string {
 	return fmt.Sprintf("%d-%02d-%02d", t.Year(), t.Month(), t.Day())
 }

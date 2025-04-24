@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// UpdateData handles the updating of an existing chemical ledger entry.
 func UpdateData(w http.ResponseWriter, r *http.Request) {
 	if err := utils.ValidateReqMethod(r.Method, http.MethodPut, w); err != nil {
 		return
@@ -51,7 +52,6 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 	if entry.Date != "" {
 		updatedEntryDate, err = utils.ParseAndValidateDate(entry.Date, w)
 		if err != nil {
-
 			return
 		}
 	} else {
@@ -78,7 +78,6 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 			logrus.Warnf("Insufficient stock in target compound '%s' (%d) for original outgoing transaction quantity (%d) when changing compound ID for entry '%s'",
 				entry.CompoundId, stockBeforeNewEntryDate, originalTxnQuantity, entry.ID)
 			utils.JsonRes(w, http.StatusNotAcceptable, &utils.Resp{Error: utils.Insufficient_stock})
-			// Transaction will be implicitly rolled back
 			return
 		}
 		logrus.Debugf("Stock check passed for compound ID change. New compound '%s' stock before date %d: %d, original outgoing quantity: %d",
@@ -93,7 +92,6 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 	if quantityRelatedFieldsProvided {
 		currentStock, quantityID, err = validateAndUpdateQuantity(dbTx, entry, originalQuantity, w)
 		if err != nil {
-			// Transaction will be implicitly rolled back
 			return
 		}
 	} else {
@@ -107,7 +105,6 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := updateEntryDetails(dbTx, entry, updatedEntryDate, currentStock, quantityID, w); err != nil {
-
 		return
 	}
 
@@ -129,8 +126,7 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 	logrus.Debugf("Updating subsequent stock for compound %s from effective date %d", targetCompoundIdForStockUpdate, targetDateForStockUpdate)
 	utils.UpdateSubSequentNetStock(dbTx, targetDateForStockUpdate, targetCompoundIdForStockUpdate, w)
 
-	var wg sync.WaitGroup // Keep if utils.UpdateSubSequentNetStock uses goroutines internally
-
+	var wg sync.WaitGroup
 	wg.Wait()
 
 	err = utils.CommitDbTx(dbTx, w)
@@ -146,8 +142,8 @@ func UpdateData(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// validateUpdateEntryFields validates the fields of the entry to be updated.
 func validateUpdateEntryFields(entry *utils.Entry, w http.ResponseWriter) error {
-
 	if entry.ID == "" {
 		logrus.Warn("No entry ID provided for update.")
 		utils.JsonRes(w, http.StatusBadRequest, &utils.Resp{Error: utils.MissingFields_or_inappropriate_value})
@@ -167,6 +163,7 @@ func validateUpdateEntryFields(entry *utils.Entry, w http.ResponseWriter) error 
 	return nil
 }
 
+// retrieveOriginalEntryData fetches the original data of the entry being updated.
 func retrieveOriginalEntryData(dbTx *sql.Tx, entryID string, originalEntryDate *int64, originalCompoundId *string, originalQuantity *utils.Quantity, originalEntryType *string, w http.ResponseWriter) error {
 	var tempQuantityPerUnit float64
 	err := dbTx.QueryRow(`
@@ -194,15 +191,16 @@ func retrieveOriginalEntryData(dbTx *sql.Tx, entryID string, originalEntryDate *
 	return nil
 }
 
+// getStockBeforeDate retrieves the net stock of a compound before a specific date.
 func getStockBeforeDate(dbTx *sql.Tx, compoundId string, date int64) (int, error) {
 	var stock int
 	err := dbTx.QueryRow(`
-        SELECT net_stock
-        FROM entry
-        WHERE compound_id = ? AND date < ?
-        ORDER BY date DESC
-        LIMIT 1
-    `, compoundId, date).Scan(&stock)
+			SELECT net_stock
+			FROM entry
+			WHERE compound_id = ? AND date < ?
+			ORDER BY date DESC
+			LIMIT 1
+		`, compoundId, date).Scan(&stock)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			logrus.Debugf("No entries found for compound '%s' before date %d. Stock assumed 0.", compoundId, date)
@@ -215,8 +213,8 @@ func getStockBeforeDate(dbTx *sql.Tx, compoundId string, date int64) (int, error
 	return stock, nil
 }
 
+// validateAndUpdateQuantity validates the requested quantity change and updates the quantity table if necessary.
 func validateAndUpdateQuantity(dbTx *sql.Tx, updatedEntry *utils.Entry, originalQuantity utils.Quantity, w http.ResponseWriter) (int, string, error) {
-
 	txnQuantity := updatedEntry.NumOfUnits * updatedEntry.QuantityPerUnit
 
 	entryType, err := getEntryType(dbTx, updatedEntry)
@@ -263,6 +261,7 @@ func validateAndUpdateQuantity(dbTx *sql.Tx, updatedEntry *utils.Entry, original
 	return currentStock, quantityID, nil
 }
 
+// getEntryType retrieves the type of an entry.
 func getEntryType(dbTx *sql.Tx, entry *utils.Entry) (string, error) {
 	if entry.Type != "" {
 		return entry.Type, nil
@@ -280,6 +279,7 @@ func getEntryType(dbTx *sql.Tx, entry *utils.Entry) (string, error) {
 	return entryType, nil
 }
 
+// getCurrentStock retrieves the latest net stock for a given compound.
 func getCurrentStock(dbTx *sql.Tx, compoundId string) (int, error) {
 	var previousStock int
 	err := dbTx.QueryRow("SELECT net_stock FROM entry WHERE compound_id = ? ORDER BY date DESC LIMIT 1", compoundId).Scan(&previousStock)
@@ -294,6 +294,7 @@ func getCurrentStock(dbTx *sql.Tx, compoundId string) (int, error) {
 	return previousStock, nil
 }
 
+// calculateCurrentStock calculates the new net stock based on the entry type and quantity.
 func calculateCurrentStock(entryType string, previousStock int, txnQuantity int, compoundId string) (int, error) { // nolint: gocyclo
 	switch entryType {
 	case utils.TypeOutgoing:
@@ -310,6 +311,7 @@ func calculateCurrentStock(entryType string, previousStock int, txnQuantity int,
 	}
 }
 
+// updateQuantityIfChanged updates the quantity in the database if the number of units or quantity per unit has changed.
 func updateQuantityIfChanged(dbTx *sql.Tx, updatedEntry *utils.Entry, originalQuantity utils.Quantity) (string, error) {
 	var quantityID string
 	updated := false
@@ -373,6 +375,7 @@ func updateQuantityIfChanged(dbTx *sql.Tx, updatedEntry *utils.Entry, originalQu
 	return "", nil
 }
 
+// getQuantityID retrieves the quantity ID associated with a given entry ID.
 func getQuantityID(dbTx *sql.Tx, entryID string) (string, error) {
 	var quantityID string
 	err := dbTx.QueryRow("SELECT quantity_id FROM entry WHERE id = ?", entryID).Scan(&quantityID)
@@ -387,6 +390,7 @@ func getQuantityID(dbTx *sql.Tx, entryID string) (string, error) {
 	return quantityID, nil
 }
 
+// updateEntryDetails updates the main entry details in the database.
 func updateEntryDetails(dbTx *sql.Tx, entry *utils.Entry, entryDate int64, currentStock int, quantityID string, w http.ResponseWriter) error {
 	query := `
 		UPDATE entry

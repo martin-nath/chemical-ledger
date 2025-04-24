@@ -13,8 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// InsertData handles the insertion of chemical ledger data based on provided filters,
-// reusing functions from the utils package.
+// InsertData handles the insertion of chemical ledger data.
 func InsertData(w http.ResponseWriter, r *http.Request) {
 	if err := utils.ValidateReqMethod(r.Method, http.MethodPost, w); err != nil {
 		return
@@ -35,7 +34,7 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 	errCh := make(chan error, 3)
 	wg.Add(2)
 
-	// Check if the compound exists
+	// Check if the compound exists.
 	go func(entry *utils.Entry, w http.ResponseWriter) {
 		defer wg.Done()
 		if err := utils.CheckIfCompoundExists(entry.CompoundId, w); err != nil {
@@ -44,7 +43,7 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 		}
 	}(entry, w)
 
-	// Parse and validate the date
+	// Parse and validate the date.
 	go func(entry *utils.Entry, w http.ResponseWriter) {
 		defer wg.Done()
 		var entryDate int64
@@ -56,7 +55,7 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 		entryDateCh <- entryDate
 	}(entry, w)
 
-	// Calculate the quantity of the stock transaction
+	// Calculate the quantity of the stock transaction.
 	currentStock, err := validateAndCalcCurrTxQuantity(entry, w)
 	if err != nil {
 		errCh <- err
@@ -106,7 +105,7 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Validates the fields of the entry. If any errors occur, it will return an error and write the error message to the response writer.
+// validateEntryFields validates the required fields for inserting an entry.
 func validateEntryFields(entry *utils.Entry, w http.ResponseWriter) error {
 	if entry.CompoundId == "" || entry.QuantityPerUnit <= 0 || entry.NumOfUnits <= 0 || (entry.Type != utils.TypeIncoming && entry.Type != utils.TypeOutgoing) {
 		logrus.Warn("Missing or invalid required fields in the request.")
@@ -116,7 +115,7 @@ func validateEntryFields(entry *utils.Entry, w http.ResponseWriter) error {
 	return nil
 }
 
-// Validates and calculates the quantity of the stock transaction. If any errors occur, it will return an error and write the error message to the response writer.
+// validateAndCalcCurrTxQuantity validates stock levels for outgoing transactions and calculates the new stock.
 func validateAndCalcCurrTxQuantity(entry *utils.Entry, w http.ResponseWriter) (int, error) {
 	txnQuantity := entry.NumOfUnits * entry.QuantityPerUnit
 	currentStock := 0
@@ -150,7 +149,7 @@ func validateAndCalcCurrTxQuantity(entry *utils.Entry, w http.ResponseWriter) (i
 	return currentStock, nil
 }
 
-// Inserts the entry data into the database. If any errors occur, it will return an error and write the error message to the response writer.
+// insertEntryData inserts the entry and quantity data into the database.
 func insertEntryData(dbTx *sql.Tx, entry *utils.Entry, entryDate int64, currentStock int, w http.ResponseWriter) (string, string, error) {
 	quantityID := fmt.Sprintf("Q_%s", uuid.NewString())
 	entryID := fmt.Sprintf("E_%s", uuid.NewString())

@@ -250,6 +250,128 @@ func TestUpdateData(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 		},
+		{
+			name: "Update NumOfUnits to Zero",
+			reqBody: map[string]any{
+				"id":           "entry2", // string
+				"num_of_units": 0,        // int
+			},
+			expectedStatus: http.StatusOK, // Assuming zero units is allowed
+		},
+		{
+			name: "Update QuantityPerUnit to Zero",
+			reqBody: map[string]any{
+				"id":                "entry2", // string
+				"quantity_per_unit": 0,        // int
+			},
+			expectedStatus: http.StatusOK, // Assuming zero quantity per unit is allowed
+		},
+		{
+			name: "Update with extra field in body",
+			reqBody: map[string]any{
+				"id":      "entry1",      // string
+				"remark":  "Remark with extra", // string
+				"extra_field": "some_value", // extra field
+			},
+			expectedStatus: http.StatusOK, // Assuming extra fields are ignored
+		},
+		// Additional Test Cases
+{
+    name: "Basic Update Net Stock (should be ignored or error)",
+    reqBody: map[string]any{
+        "id":        "entry1", // string
+        "net_stock": 999,      // int (assuming net_stock is calculated and not directly updatable)
+    },
+    expectedStatus: http.StatusOK, // Assuming the field is ignored, or Bad Request if handler validates against extra fields not in UpdatedEntry
+},
+{
+    name: "Update Multiple Entry and Quantity Fields - Different Entry",
+    reqBody: map[string]any{
+        "id":                "entry1", // string
+        "type":              "outgoing", // string
+        "date":              "2023-11-01", // string
+        "num_of_units":      3,          // int
+        "quantity_per_unit": 15,         // int
+        "remark":            "Full update test", // string
+        "voucher":           "V001_new", // string
+        "compound_id":       "ethanol",  // string
+    },
+    expectedStatus: http.StatusOK,
+},
+{
+    name: "Update with Invalid Compound ID (does not exist)",
+    reqBody: map[string]any{
+        "id":          "entry1",             // string
+        "compound_id": "nonexistent_compound", // string
+    },
+    expectedStatus: http.StatusNotFound, // Assuming CheckIfCompoundExists returns NotFound
+},
+{
+    name: "Update Date to Earlier Than Previous Entry (requires subsequent recalculation)",
+    reqBody: map[string]any{
+        "id":   "entry2",          // string (originally yesterday)
+        "date": "2023-10-26",      // string (same date as entry1, requires reordering and recalculation)
+    },
+    expectedStatus: http.StatusOK, // Assuming successful update and recalculation
+},
+{
+    name: "Update Quantity Causing Insufficient Stock for Subsequent Outgoing Entry",
+    reqBody: map[string]any{
+        "id":                "entry1", // string (originally 5 * 10 = 50 units, net stock 50)
+        "num_of_units":      1,        // int
+        "quantity_per_unit": 1,        // int (new quantity 1 * 1 = 1)
+        // This update should cause entry2 (outgoing, originally 2 * 20 = 40 units) to fail due to insufficient stock
+    },
+    expectedStatus: http.StatusNotAcceptable, // Assuming insufficient stock error is returned
+},
+{
+    name: "Update Type from Incoming to Outgoing",
+    reqBody: map[string]any{
+        "id":   "entry1",     // string (originally incoming)
+        "type": "outgoing",   // string
+    },
+    expectedStatus: http.StatusOK, // Assuming successful update and recalculation
+},
+{
+    name: "Update Type from Outgoing to Incoming",
+    reqBody: map[string]any{
+        "id":   "entry2",     // string (originally outgoing)
+        "type": "incoming",   // string
+    },
+    expectedStatus: http.StatusOK, // Assuming successful update and recalculation
+},
+{
+    name: "Update Compound ID (requires recalculation for old and new compounds)",
+    reqBody: map[string]any{
+        "id":          "entry1",  // string (originally aceticAcid)
+        "compound_id": "ethanol", // string
+    },
+    expectedStatus: http.StatusOK, // Assuming successful update and recalculation for both compounds
+},
+{
+    name: "Update Remark with Special Characters",
+    reqBody: map[string]any{
+        "id":     "entry1", // string
+        "remark": "Updated with !@#$%^&*()_+", // string
+    },
+    expectedStatus: http.StatusOK,
+},
+{
+    name: "Update Voucher No with Special Characters",
+    reqBody: map[string]any{
+        "id":      "entry1", // string
+        "voucher": "Voucher: <>?\"'{}[];", // string
+    },
+    expectedStatus: http.StatusOK,
+},
+{
+    name: "Update Date to a Leap Year Date",
+    reqBody: map[string]any{
+        "id":   "entry1", // string
+        "date": "2024-02-29", // string
+    },
+    expectedStatus: http.StatusOK,
+},
 	}
 
 	for _, tc := range testCases {

@@ -74,21 +74,21 @@ func JsonReq(r *http.Request, dst any, w http.ResponseWriter) error {
 // UpdateSubSequentNetStock updates the net stock of all subsequent entries for a given compound starting from the specified date.
 // It retrieves the stock level before the given entry date and then iterates through subsequent entries, updating their net stock based on their type and quantity.
 // It performs these operations within the provided database transaction.
-func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, w http.ResponseWriter) error {
+func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string) string {
 	var previousStock int
 	err := Retry(func() error {
 		err := dbTx.QueryRow("SELECT net_stock FROM entry WHERE compound_id = ? AND date < ? ORDER BY date DESC LIMIT 1", compoundId, entryDate).Scan(&previousStock)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			JsonRes(w, http.StatusInternalServerError, &Resp{Error: Stock_retrieval_error})
+			// JsonRes(w, http.StatusInternalServerError, &Resp{Error: Stock_retrieval_error})
 			logrus.Errorf("Error retrieving previous stock for compound '%s': %v", compoundId, err)
 			return errors.New("error retrieving previous stock")
 		}
 		return nil
 	})
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		JsonRes(w, http.StatusInternalServerError, &Resp{Error: Stock_retrieval_error})
+		// JsonRes(w, http.StatusInternalServerError, &Resp{Error: Stock_retrieval_error})
 		logrus.Errorf("Error retrieving previous stock for compound '%s': %v", compoundId, err)
-		return errors.New("error retrieving previous stock")
+		return Stock_retrieval_error
 	}
 
 	var rows *sql.Rows
@@ -111,9 +111,9 @@ func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, 
 	})
 
 	if err != nil {
-		JsonRes(w, http.StatusInternalServerError, &Resp{Error: Stock_retrieval_error})
+		// JsonRes(w, http.StatusInternalServerError, &Resp{Error: Stock_retrieval_error})
 		logrus.Errorf("Error retrieving subsequent entries for compound '%s': %v", compoundId, err)
-		return errors.New("error retrieving subsequent entries")
+		return Stock_retrieval_error
 	}
 	defer rows.Close()
 
@@ -127,9 +127,9 @@ func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, 
 		}
 		err := rows.Scan(&entryUpdate.EntryID, &entryUpdate.EntryType, &entryUpdate.Quantity, &entryUpdate.EntryDate)
 		if err != nil {
-			JsonRes(w, http.StatusInternalServerError, &Resp{Error: Entry_update_scan_error})
+			// JsonRes(w, http.StatusInternalServerError, &Resp{Error: Entry_update_scan_error})
 			logrus.Errorf("Error reading entry details while updating stock: %v", err)
-			return errors.New("error reading entry details")
+			return Entry_update_scan_error
 		}
 
 		switch entryUpdate.EntryType {
@@ -138,9 +138,9 @@ func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, 
 		case TypeOutgoing:
 			previousStock -= entryUpdate.Quantity
 			if previousStock < 0 {
-				JsonRes(w, http.StatusInternalServerError, &Resp{Error: Insufficient_stock})
+				// JsonRes(w, http.StatusInternalServerError, &Resp{Error: Insufficient_stock})
 				logrus.Errorf("Error calculating net stock after entry '%s': insufficient stock", entryUpdate.EntryID)
-				return errors.New("insufficient stock")
+				return Insufficient_stock
 			}
 		}
 
@@ -151,14 +151,14 @@ func UpdateSubSequentNetStock(dbTx *sql.Tx, entryDate int64, compoundId string, 
 	if updateQueries != "" {
 		_, err = dbTx.Exec(updateQueries)
 		if err != nil {
-			JsonRes(w, http.StatusInternalServerError, &Resp{Error: Update_subsequent_entries_error})
+			// JsonRes(w, http.StatusInternalServerError, &Resp{Error: Update_subsequent_entries_error})
 			logrus.Errorf("Error saving the updated stock information for compound '%s': %v", compoundId, err)
-			return errors.New("error saving the updated stock information")
+			return Update_subsequent_entries_error
 		}
 		logrus.Debugf("Updated net stock for subsequent entries of compound '%s'", compoundId)
 	}
 
-	return nil
+	return ""
 }
 
 // BeginDbTx starts a new database transaction.

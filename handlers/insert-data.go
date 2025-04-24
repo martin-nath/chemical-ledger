@@ -91,7 +91,8 @@ func InsertData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := utils.UpdateSubSequentNetStock(dbTx, entryDate, entry.CompoundId, w); err != nil {
+	if errStr := utils.UpdateSubSequentNetStock(dbTx, entryDate, entry.CompoundId); errStr != "" {
+		utils.JsonRes(w, http.StatusInternalServerError, &utils.Resp{Error: errStr})
 		return
 	}
 

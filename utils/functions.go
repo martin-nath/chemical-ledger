@@ -80,7 +80,7 @@ func IfErrRetry(f func() error) error {
 func GetDateUnix(date string) int64 {
 	t, _ := time.Parse("2006-01-02", date)
 
-	now := time.Now()
+	now := time.Now().Local()
 	nowDate := time.Date(t.Year(), t.Month(), t.Day(), now.Hour(), now.Minute(), now.Second(), 0, now.Location())
 
 	return nowDate.Unix()
@@ -176,8 +176,6 @@ func CheckIfCompoundExists(compoundId string) (bool, error) {
 
 	return compoundExists, nil
 }
-
-
 
 func GetLowerCasedCompoundName(compoundName string) string {
 	subStrs := strings.Split(compoundName, " ")

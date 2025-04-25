@@ -184,8 +184,13 @@ func buildGetEntryQueries(filters *GetEntryReq) (string, string, []any) {
 			`, []any{}
 	}
 
-	fromDate := utils.GetDateUnix(filters.FromDate)
-	toDate := utils.GetDateUnix(filters.ToDate)
+	now := time.Now().Local()
+
+	fromDateObj, _ := time.Parse("2006-01-02", filters.FromDate)
+	fromDate := time.Date(fromDateObj.Year(), fromDateObj.Month(), fromDateObj.Day(), 0, 0, 0, 0, now.Location()).Unix()
+
+	toDateObj, _ := time.Parse("2006-01-02", filters.ToDate)
+	toDate := time.Date(toDateObj.Year(), toDateObj.Month(), toDateObj.Day(), 23, 59, 59, 0, now.Location()).Unix()
 
 	queryBuilder := strings.Builder{}
 	countQueryBuilder := strings.Builder{}

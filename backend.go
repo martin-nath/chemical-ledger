@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
 	slogchi "github.com/samber/slog-chi"
 )
 
@@ -33,6 +34,13 @@ func main() {
 	}
 
 	r := chi.NewRouter()
+
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000"},
+		AllowedMethods:   []string{"GET", "POST", "PUT"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowCredentials: false,
+	}))
 
 	r.Use(slogchi.New(logger))
 	r.Use(func(next http.Handler) http.Handler {

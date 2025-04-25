@@ -63,7 +63,7 @@ func GetCompoundHandler(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type Compound struct {
-		ID    string `json:"id"`
+		ID    string `json:"key"`
 		Name  string `json:"name"`
 		Scale string `json:"scale"`
 	}

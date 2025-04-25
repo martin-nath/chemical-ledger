@@ -1,7 +1,8 @@
 CREATE TABLE IF NOT EXISTS compound (
   id TEXT PRIMARY KEY,
+  lower_case_name TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
-  scale TEXT CHECK(scale IN ('mg', 'ml'))
+  scale TEXT CHECK(scale IN ('g', 'ml'))
 );
 
 CREATE TABLE IF NOT EXISTS quantity (

@@ -1,13 +1,9 @@
 package utils
 
-import "time"
-
 const (
-	MaxRetries   = 3
-	RetryDelay   = 100 * time.Millisecond
-	ScaleMg      = "mg"
-	ScaleMl      = "ml"
-	TypeIncoming = "incoming"
-	TypeOutgoing = "outgoing"
-	TypeBoth     = "both"
+	ENTRY_TYPE_INCOMING = "incoming"
+	ENTRY_TYPE_OUTGOING = "outgoing"
+
+	SCALE_G  = "g"
+	SCALE_ML = "ml"
 )

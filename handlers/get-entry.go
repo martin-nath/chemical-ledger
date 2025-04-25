@@ -29,10 +29,8 @@ func GetEntryHandler(w http.ResponseWriter, r *http.Request) {
 		utils.RespWithError(w, http.StatusBadRequest, errStr)
 		return
 	}
-	fromDate := utils.GetDateUnix(reqBody.FromDate)
-	toDate := utils.GetDateUnix(reqBody.ToDate)
 
-	filterQuery, countQuery, filterArgs := buildGetEntryQueries(reqBody, fromDate, toDate)
+	filterQuery, countQuery, filterArgs := buildGetEntryQueries(reqBody)
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -148,7 +146,7 @@ func validateGetEntryReq(reqBody *GetEntryReq) utils.ErrorMessage {
 	return utils.NO_ERR
 }
 
-func buildGetEntryQueries(filters *GetEntryReq, fromDate int64, toDate int64) (string, string, []any) {
+func buildGetEntryQueries(filters *GetEntryReq) (string, string, []any) {
 	if filters.CompoundId == "lastTransactions" {
 		return `
 					SELECT
@@ -185,6 +183,9 @@ func buildGetEntryQueries(filters *GetEntryReq, fromDate int64, toDate int64) (s
 				) latest ON e.compound_id = latest.compound_id AND e.date = latest.latest_date;
 			`, []any{}
 	}
+
+	fromDate := utils.GetDateUnix(filters.FromDate)
+	toDate := utils.GetDateUnix(filters.ToDate)
 
 	queryBuilder := strings.Builder{}
 	countQueryBuilder := strings.Builder{}

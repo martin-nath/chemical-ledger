@@ -32,7 +32,7 @@ func GetEntryHandler(w http.ResponseWriter, r *http.Request) {
 	fromDate := utils.GetDateUnix(reqBody.FromDate)
 	toDate := utils.GetDateUnix(reqBody.ToDate)
 
-	filterQuery, countQuery, filterArgs := buildGetDataQueries(reqBody, fromDate, toDate)
+	filterQuery, countQuery, filterArgs := buildGetEntryQueries(reqBody, fromDate, toDate)
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -148,7 +148,7 @@ func validateGetEntryReq(reqBody *GetEntryReq) utils.ErrorMessage {
 	return utils.NO_ERR
 }
 
-func buildGetDataQueries(filters *GetEntryReq, fromDate int64, toDate int64) (string, string, []any) {
+func buildGetEntryQueries(filters *GetEntryReq, fromDate int64, toDate int64) (string, string, []any) {
 	if filters.CompoundId == "lastTransactions" {
 		return `
 					SELECT
@@ -227,8 +227,10 @@ WHERE 1=1`)
 		filterArgs = append(filterArgs, toDate)
 	}
 
-	countQueryBuilder.WriteString(filterQueryBuilder.String())
-	queryBuilder.WriteString(filterQueryBuilder.String())
+	filterQueryStr := filterQueryBuilder.String()
+
+	countQueryBuilder.WriteString(filterQueryStr)
+	queryBuilder.WriteString(filterQueryStr)
 
 	queryBuilder.WriteString(" ORDER BY e.date DESC")
 

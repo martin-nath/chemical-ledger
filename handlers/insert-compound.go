@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -28,7 +27,7 @@ func InsertCompoundHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	compoundId := generateCompoundId()
-	lowerCasedName := getLowerCasedCompoundName(reqBody.Name)
+	lowerCasedName := utils.GetLowerCasedCompoundName(reqBody.Name)
 
 	compoundExists := false
 	err := db.Conn.QueryRow("SELECT EXISTS(SELECT 1 FROM compound WHERE lower_case_name = ?)", lowerCasedName).Scan(&compoundExists)
@@ -71,12 +70,4 @@ func validateCompoundReq(reqBody *InsertCompoundReq) utils.ErrorMessage {
 
 func generateCompoundId() string {
 	return fmt.Sprintf("C_%d", time.Now().Unix())
-}
-
-func getLowerCasedCompoundName(compoundName string) string {
-	subStrs := strings.Split(compoundName, " ")
-	for i, subStr := range subStrs {
-		subStrs[i] = strings.ToLower(subStr)
-	}
-	return strings.Join(subStrs, "-")
 }

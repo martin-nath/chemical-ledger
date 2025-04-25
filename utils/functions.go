@@ -176,3 +176,13 @@ func CheckIfCompoundExists(compoundId string) (bool, error) {
 
 	return compoundExists, nil
 }
+
+
+
+func GetLowerCasedCompoundName(compoundName string) string {
+	subStrs := strings.Split(compoundName, " ")
+	for i, subStr := range subStrs {
+		subStrs[i] = strings.ToLower(subStr)
+	}
+	return strings.Join(subStrs, "-")
+}

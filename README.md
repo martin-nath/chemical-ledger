@@ -1,22 +1,33 @@
 # Chemical Ledger Backend
 
-This is the backend for the Chemical Ledger application. It is written in Go and uses the [http](https://pkg.go.dev/net/http) package to handle HTTP requests and responses.
+This is the backend for the Chemical Ledger application. It is written in Go and uses the [Chi](https://github.com/go-chi/chi) web framework.
 
-## Features
+## Api Endpoints
 
-- Insert data
-- Retrieve data
-- Update data
-- Retrieve compound names
+### POST /insert-compound
 
-## Run locally
+Inserts a new compound into the database.
 
-To run the backend, you need to have Go installed on your machine. You can then run the following command to build and run the backend:
+### GET /get-compound
 
-```bash
-go run backend.go
-```
+Retrieves all compounds from the database.
 
-## Data Storage
+### PUT /update-compound
 
-The backend uses a SQLite database to store data. The database file is located at `chemical_ledger.db` in the same directory as the backend executable.
+Updates an existing compound in the database.
+
+### POST /insert-entry
+
+Inserts a new entry into the database.
+
+### GET /get-entry
+
+Retrieves all entries from the database.
+
+### PUT /update-entry
+
+Updates an existing entry in the database.
+
+## Database Schema
+
+The database schema is defined in the `db/create-tables.sql` file. It includes tables for compounds and entries, as well as a table for quantities.

@@ -27,7 +27,7 @@ func InsertCompoundHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	compoundId := generateCompoundId(reqBody.Name)
+	compoundId := generateCompoundId()
 	lowerCasedName := getLowerCasedCompoundName(reqBody.Name)
 
 	compoundExists := false
@@ -69,7 +69,7 @@ func validateCompoundReq(reqBody *InsertCompoundReq) utils.ErrorMessage {
 	return utils.NO_ERR
 }
 
-func generateCompoundId(compoundName string) string {
+func generateCompoundId() string {
 	return fmt.Sprintf("C_%d", time.Now().Unix())
 }
 

@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	logFile, err := os.OpenFile("app.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile("./app.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		slog.Error("failed to open log file", "error", err)
 		panic(err)

@@ -54,7 +54,12 @@ func UpdateEntryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	currTxQuantity := reqBody.NumOfUnits * reqBody.QuantityPerUnit
-	entryDate := utils.GetDateUnix(reqBody.Date)
+	entryDate, err := utils.MergeDateWithUnixTime(reqBody.Date, oldEntry.Date)
+	if err != nil {
+		slog.Error("Error merging date with time: " + err.Error())
+		utils.RespWithError(w, http.StatusInternalServerError, utils.INVALID_DATE_FORMAT)
+		return
+	}
 
 	tx, err := db.Conn.Begin()
 	if err != nil {
@@ -62,6 +67,7 @@ func UpdateEntryHandler(w http.ResponseWriter, r *http.Request) {
 		utils.RespWithError(w, http.StatusInternalServerError, utils.TX_START_ERR)
 		return
 	}
+	defer tx.Rollback()
 
 	_, err = tx.Exec("UPDATE quantity SET num_of_units = ?, quantity_per_unit = ? WHERE id = ?", reqBody.NumOfUnits, reqBody.QuantityPerUnit, oldEntry.QuantityId)
 	if err != nil {

@@ -86,6 +86,31 @@ func GetDateUnix(date string) int64 {
 	return nowDate.Unix()
 }
 
+
+func MergeDateWithUnixTime(dateStr string, unixTime int64) (int64, error) {
+	// Define IST as +05:30
+	ist := time.FixedZone("IST", 5*60*60+30*60)
+
+	// Parse the date string in IST
+	date, err := time.ParseInLocation("2006-01-02", dateStr, ist)
+	if err != nil {
+		return 0, fmt.Errorf("invalid date format: %w", err)
+	}
+
+	// Convert the Unix timestamp to time.Time in IST
+	t := time.Unix(unixTime, 0).In(ist)
+
+	// Merge the date with the time from the Unix timestamp
+	merged := time.Date(
+		date.Year(), date.Month(), date.Day(),
+		t.Hour(), t.Minute(), t.Second(), t.Nanosecond(),
+		ist,
+	)
+
+	return merged.Unix(), nil
+}
+
+
 func UpdateNetStockFromTodayOnwards(tx *sql.Tx, compoundId string, date int64) ErrorMessage {
 	var netStock int
 	err := IfErrRetry(func() error {

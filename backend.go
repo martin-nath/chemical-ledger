@@ -13,7 +13,12 @@ import (
 )
 
 func main() {
-	logFile, err := os.OpenFile("./app.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err := os.Mkdir("./info", 0755); err != nil && !os.IsExist(err) {
+		slog.Error("failed to create './info' directory", "error", err)
+		panic(err)
+	}
+
+	logFile, err := os.OpenFile("./info/app.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		slog.Error("failed to open log file", "error", err)
 		panic(err)
@@ -23,7 +28,7 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(logFile, &slog.HandlerOptions{}))
 	slog.SetDefault(logger)
 
-	if err = db.SetUpConnection("./chemical-ledger.db"); err != nil {
+	if err = db.SetUpConnection("./info/chemical-ledger.db"); err != nil {
 		slog.Error("failed to set up database connection")
 		panic(err)
 	}

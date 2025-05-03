@@ -1,5 +1,4 @@
-# Ignore database files
-*.db
+info
 tmp
 *.log
 *.txt

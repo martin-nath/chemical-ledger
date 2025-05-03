@@ -20,7 +20,7 @@ type GetEntryReq struct {
 
 func GetEntryHandler(w http.ResponseWriter, r *http.Request) {
 	reqBody := &GetEntryReq{
-		Type:         utils.GetParam(r, "type"),
+		Type:         utils.GetParam(r, "entry_type"),
 		CompoundId:   utils.GetParam(r, "compound_id"),
 		FromDate:     utils.GetParam(r, "from_date"),
 		ToDate:       utils.GetParam(r, "to_date"),

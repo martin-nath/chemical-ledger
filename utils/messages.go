@@ -19,6 +19,7 @@ const (
 
 	TX_START_ERR           = "An error occurred while starting the process."
 	COMMIT_TRANSACTION_ERR = "There was an error saving the changes."
+	INVALID_TRANSACTIONS_TYPE = "The provided transactions type is not valid."
 
 	COMPOUND_ID_CHECK_ERR  = "We couldn't verify the compound identifier."
 	COMPOUND_RETRIEVAL_ERR = "We encountered an issue retrieving the list of compounds."

@@ -86,7 +86,6 @@ func GetDateUnix(date string) int64 {
 	return nowDate.Unix()
 }
 
-
 func MergeDateWithUnixTime(dateStr string, unixTime int64) (int64, error) {
 	// Define IST as +05:30
 	ist := time.FixedZone("IST", 5*60*60+30*60)
@@ -109,7 +108,6 @@ func MergeDateWithUnixTime(dateStr string, unixTime int64) (int64, error) {
 
 	return merged.Unix(), nil
 }
-
 
 func UpdateNetStockFromTodayOnwards(tx *sql.Tx, compoundId string, date int64) ErrorMessage {
 	var netStock int
@@ -200,6 +198,19 @@ func CheckIfCompoundExists(compoundId string) (bool, error) {
 	}
 
 	return compoundExists, nil
+}
+
+func CheckIfLowerCaseCompoundExists(lowerCasedName string) (bool, error) {
+	var lowerCaseCompoundExists bool
+	err := IfErrRetry(func() error {
+		return db.Conn.QueryRow("SELECT EXISTS(SELECT 1 FROM compound WHERE lower_case_name = ?)", lowerCasedName).Scan(&lowerCaseCompoundExists)
+	})
+
+	if err != nil {
+		return false, err
+	}
+
+	return lowerCaseCompoundExists, nil
 }
 
 func GetLowerCasedCompoundName(compoundName string) string {

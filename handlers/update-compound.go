@@ -27,6 +27,19 @@ func UpdateCompoundHandler(w http.ResponseWriter, r *http.Request) {
 
 	lowerCasedName := utils.GetLowerCasedCompoundName(reqBody.Name)
 
+	lowerCaseCompoundExists, err := utils.CheckIfLowerCaseCompoundExists(lowerCasedName)
+	if err != nil {
+		slog.Error("Error checking if compound exists: ", "error", err.Error())
+		utils.RespWithError(w, http.StatusInternalServerError, utils.COMPOUND_ID_CHECK_ERR)
+		return
+	}
+
+	if lowerCaseCompoundExists {
+		slog.Warn("Compound with name: ", reqBody.Name, " already exists")
+		utils.RespWithError(w, http.StatusNotAcceptable, utils.COMPOUND_ALREADY_EXISTS)
+		return
+	}
+
 	if _, err := db.Conn.Exec(`
 	UPDATE compound
 	SET

@@ -62,7 +62,7 @@ func GetEntryHandler(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := db.Conn.Query(filterQuery, filterArgs...)
 	if err != nil {
-		slog.Error("failed to query last transactions", "error", err)
+		slog.Error("failed to query entry data", "error", err)
 		utils.RespWithError(w, http.StatusInternalServerError, utils.ENTRY_RETRIEVAL_ERR)
 		return
 	}
@@ -71,7 +71,7 @@ func GetEntryHandler(w http.ResponseWriter, r *http.Request) {
 	close(countCh)
 	close(errCh)
 	if err := <-errCh; err != nil {
-		slog.Error("failed to scan last transactions", "error", err)
+		slog.Error("failed to scan count of entries", "error", err)
 		utils.RespWithError(w, http.StatusInternalServerError, utils.ENTRY_RETRIEVAL_ERR)
 		return
 	}
@@ -85,7 +85,7 @@ func GetEntryHandler(w http.ResponseWriter, r *http.Request) {
 			&entry.Id, &entry.Type, &entry.Date, &entry.Remark, &entry.VoucherNo, &entry.NetStock,
 			&entry.CompoundId, &entry.Name, &entry.Scale,
 			&entry.NumOfUnits, &entry.QuantityPer); err != nil {
-			slog.Error("failed to scan entry", "error", err)
+			slog.Error("failed to scan entry row", "error", err)
 			utils.RespWithError(w, http.StatusInternalServerError, utils.ENTRY_RETRIEVAL_ERR)
 			return
 		}
@@ -98,26 +98,26 @@ func GetEntryHandler(w http.ResponseWriter, r *http.Request) {
 
 func validateGetEntryReq(reqBody *GetEntryReq) utils.ErrorMessage {
 	if reqBody.Type == "" || reqBody.CompoundId == "" || reqBody.FromDate == "" || reqBody.ToDate == "" {
-		slog.Error("missing required fields")
+		slog.Error("missing required fields", "entry_type", reqBody.Type, "compound_id", reqBody.CompoundId, "from_date", reqBody.FromDate, "to_date", reqBody.ToDate)
 		return utils.MISSING_REQUIRED_FIELDS
 	}
 
 	if reqBody.Type != utils.ENTRY_TYPE_INCOMING && reqBody.Type != utils.ENTRY_TYPE_OUTGOING && reqBody.Type != "both" {
-		slog.Error("invalid entry type, received: " + reqBody.Type)
+		slog.Error("invalid entry type", "received", reqBody.Type)
 		return utils.INVALID_ENTRY_TYPE
 	}
 
 	if _, err := time.Parse("2006-01-02", reqBody.FromDate); err != nil {
-		slog.Error(err.Error())
+		slog.Error("invalid from_date format", "from_date", reqBody.FromDate, "error", err)
 		return utils.INVALID_DATE_FORMAT
 	}
 	if _, err := time.Parse("2006-01-02", reqBody.ToDate); err != nil {
-		slog.Error(err.Error())
+		slog.Error("invalid to_date format", "to_date", reqBody.ToDate, "error", err)
 		return utils.INVALID_DATE_FORMAT
 	}
 
 	if reqBody.Transactions != "basedOnDates" && reqBody.Transactions != "all" && reqBody.Transactions != "last" {
-		slog.Error("Invalid transactions type, received: " + reqBody.Transactions)
+		slog.Error("invalid transactions type", "received", reqBody.Transactions)
 		return utils.INVALID_TRANSACTIONS_TYPE
 	}
 
@@ -125,27 +125,28 @@ func validateGetEntryReq(reqBody *GetEntryReq) utils.ErrorMessage {
 	unixToDate := utils.GetDateUnix(reqBody.ToDate)
 
 	if unixFromDate > time.Now().Unix() && unixToDate > time.Now().Unix() {
-		slog.Error("future date provided, " + reqBody.FromDate + " and " + reqBody.ToDate)
+		slog.Error("future date range provided", "from_date", reqBody.FromDate, "to_date", reqBody.ToDate)
 		return utils.FUTURE_DATE_ERR
 	}
 
 	if unixFromDate > unixToDate {
-		slog.Error("from date is after to date")
+		slog.Error("from_date is after to_date", "from_date", reqBody.FromDate, "to_date", reqBody.ToDate)
 		return utils.INVALID_DATE_RANGE
 	}
 
 	err := validateCompoundIdField(reqBody.CompoundId)
 	if err != utils.NO_ERR {
+		slog.Error("invalid compound_id", "compound_id", reqBody.CompoundId)
 		return err
 	}
 
 	return utils.NO_ERR
 }
+
 func buildGetEntryQueries(filters *GetEntryReq) (string, string, []any) {
 	var filterArgs []any
 	var whereClause string
 
-	// Initialize the WHERE clause based on transactions type
 	switch filters.Transactions {
 	case "basedOnDates":
 		fromDate, _ := time.Parse("2006-01-02", filters.FromDate)
@@ -160,7 +161,6 @@ func buildGetEntryQueries(filters *GetEntryReq) (string, string, []any) {
 			whereClause += " AND e.type = ?"
 			filterArgs = append(filterArgs, filters.Type)
 		}
-
 		if filters.CompoundId != "all" {
 			whereClause += " AND e.compound_id = ?"
 			filterArgs = append(filterArgs, filters.CompoundId)
@@ -171,7 +171,6 @@ func buildGetEntryQueries(filters *GetEntryReq) (string, string, []any) {
 			whereClause = "e.type = ?"
 			filterArgs = append(filterArgs, filters.Type)
 		}
-
 		if filters.CompoundId != "all" {
 			if whereClause != "" {
 				whereClause += " AND "
@@ -186,7 +185,6 @@ func buildGetEntryQueries(filters *GetEntryReq) (string, string, []any) {
 			FROM entry
 			GROUP BY compound_id
 		`
-
 		mainQuery := `
 			SELECT
 				e.id, e.type, datetime(e.date, 'unixepoch', 'localtime'),
@@ -199,7 +197,6 @@ func buildGetEntryQueries(filters *GetEntryReq) (string, string, []any) {
 			JOIN compound c ON e.compound_id = c.id
 			JOIN quantity q ON e.quantity_id = q.id
 		`
-
 		countQuery := `
 			SELECT COUNT(*)
 			FROM entry e
@@ -211,7 +208,6 @@ func buildGetEntryQueries(filters *GetEntryReq) (string, string, []any) {
 			whereClause = "e.type = ?"
 			filterArgs = append(filterArgs, filters.Type)
 		}
-
 		if filters.CompoundId != "all" {
 			if whereClause != "" {
 				whereClause += " AND "
@@ -219,12 +215,10 @@ func buildGetEntryQueries(filters *GetEntryReq) (string, string, []any) {
 			whereClause += "e.compound_id = ?"
 			filterArgs = append(filterArgs, filters.CompoundId)
 		}
-
 		if whereClause != "" {
 			mainQuery += " WHERE " + whereClause
 			countQuery += " WHERE " + whereClause
 		}
-
 		mainQuery += " ORDER BY c.name;"
 		return mainQuery, countQuery, filterArgs
 	}
@@ -239,19 +233,16 @@ func buildGetEntryQueries(filters *GetEntryReq) (string, string, []any) {
 		JOIN compound c ON e.compound_id = c.id
 		JOIN quantity q ON e.quantity_id = q.id
 	`
-
 	countQuery := `
 		SELECT COUNT(*)
 		FROM entry e
 		JOIN compound c ON e.compound_id = c.id
 		JOIN quantity q ON e.quantity_id = q.id
 	`
-
 	if whereClause != "" {
 		query += " WHERE " + whereClause
 		countQuery += " WHERE " + whereClause
 	}
-
 	query += " ORDER BY e.date DESC;"
 	return query, countQuery, filterArgs
 }
@@ -264,6 +255,7 @@ func validateCompoundIdField(id string) utils.ErrorMessage {
 	var exists bool
 	err := db.Conn.QueryRow("SELECT EXISTS (SELECT 1 FROM compound WHERE id = ?)", id).Scan(&exists)
 	if err != nil || !exists {
+		slog.Error("compound ID does not exist or DB error", "compound_id", id, "error", err)
 		return utils.INVALID_COMPOUND_ID
 	}
 

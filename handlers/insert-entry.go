@@ -22,7 +22,7 @@ type InsertEntryReq struct {
 func InsertEntryHandler(w http.ResponseWriter, r *http.Request) {
 	/* This part of the code is to prevent the trial period from exceeding the limit */
 	const TRIAL_PERIOD_ENTRY_LIMIT = 20
-	
+
 	var totalEntries int
 	if err := db.Conn.QueryRow("SELECT COUNT(*) FROM entry").Scan(&totalEntries); err != nil {
 		slog.Error("error getting total entries", "error", err)
@@ -133,7 +133,9 @@ func validateInsertEntryReq(reqBody *InsertEntryReq) utils.ErrorMessage {
 }
 
 func validateDate(date string) utils.ErrorMessage {
-	parsed, err := time.Parse("2006-01-02", date)
+	loc := time.FixedZone("IST", 5*60*60+30*60) // +05:30 IST
+
+	parsed, err := time.ParseInLocation("2006-01-02", date, loc)
 	if err != nil {
 		slog.Error("date parsing failed", "date", date, "error", err)
 		return utils.INVALID_DATE_FORMAT

@@ -34,36 +34,61 @@ func UpdateCompoundHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if lowerCaseCompoundExists {
-		slog.Warn("Compound with name: ", reqBody.Name, " already exists")
-		utils.RespWithError(w, http.StatusNotAcceptable, utils.COMPOUND_ALREADY_EXISTS)
+	scale, err := getCompoundScale(reqBody.ID)
+	if err != nil {
+		slog.Error("Error getting compound scale: ", "error", err.Error())
+		utils.RespWithError(w, http.StatusInternalServerError, utils.COMPOUND_SCALE_ERR)
 		return
 	}
 
-	if _, err := db.Conn.Exec(`
-	UPDATE compound
-	SET
-		name = CASE
-			WHEN ? != '' THEN ?
-			ELSE name
-		END,
-		scale = CASE
-			WHEN ? != '' THEN ?
-			ELSE scale
-		END,
-		lower_case_name = CASE
-			WHEN ? != '' THEN ?
-			ELSE lower_case_name
-		END
-	WHERE id = ?`,
-		reqBody.Name, reqBody.Name,
-		reqBody.Scale, reqBody.Scale,
-		lowerCasedName, lowerCasedName,
-		reqBody.ID,
-	); err != nil {
-		slog.Error("Error updating compound", "error", err.Error())
-		utils.RespWithError(w, http.StatusInternalServerError, utils.COMPOUND_UPDATE_ERR)
+	compoundName, err := getCompoundName(reqBody.ID)
+	if err != nil {
+		slog.Error("Error getting compound name: ", "error", err.Error())
+		utils.RespWithError(w, http.StatusInternalServerError, utils.COMPOUND_SCALE_ERR)
 		return
+	}
+
+	if scale != reqBody.Scale && reqBody.Scale != "" && compoundName == reqBody.Name {
+		if _, err := db.Conn.Exec(`
+		UPDATE compound
+		SET scale = ?
+		WHERE id = ?`,
+			reqBody.Scale, reqBody.ID,
+		); err != nil {
+			slog.Error("Error updating compound scale", "error", err.Error())
+			utils.RespWithError(w, http.StatusInternalServerError, utils.COMPOUND_UPDATE_ERR)
+			return
+		}
+	}
+
+	if reqBody.Name != compoundName && reqBody.Name != "" {
+
+		if lowerCaseCompoundExists {
+			slog.Warn("Compound with name: ", reqBody.Name, " already exists")
+			utils.RespWithError(w, http.StatusNotAcceptable, utils.COMPOUND_ALREADY_EXISTS)
+			return
+		}
+
+		if _, err := db.Conn.Exec(`
+		UPDATE compound
+		SET
+			name = CASE
+				WHEN ? != '' THEN ?
+				ELSE name
+			END,
+			lower_case_name = CASE
+				WHEN ? != '' THEN ?
+				ELSE lower_case_name
+			END
+		WHERE id = ?`,
+			reqBody.Name, reqBody.Name,
+			lowerCasedName, lowerCasedName,
+			reqBody.ID,
+		); err != nil {
+			slog.Error("Error updating compound", "error", err.Error())
+			utils.RespWithError(w, http.StatusInternalServerError, utils.COMPOUND_UPDATE_ERR)
+			return
+		}
 	}
 
 	utils.RespWithData(w, http.StatusOK, map[string]any{
@@ -89,4 +114,30 @@ func validateUpdateCompoundReq(reqBody *UpdateCompoundReq) utils.ErrorMessage {
 	}
 
 	return utils.NO_ERR
+}
+
+func getCompoundScale(compoundId string) (string, error) {
+	var scale string
+	err := utils.IfErrRetry(func() error {
+		return db.Conn.QueryRow("SELECT scale FROM compound WHERE id = ?", compoundId).Scan(&scale)
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return scale, nil
+}
+
+func getCompoundName(compoundId string) (string, error) {
+	var name string
+	err := utils.IfErrRetry(func() error {
+		return db.Conn.QueryRow("SELECT name FROM compound WHERE id = ?", compoundId).Scan(&name)
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return name, nil
 }

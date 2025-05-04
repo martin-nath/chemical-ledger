@@ -25,6 +25,7 @@ const (
 	COMPOUND_RETRIEVAL_ERR = "We encountered an issue retrieving the list of compounds."
 	COMPOUND_UPDATE_ERR    = "We were unable to update the compound information."
 	INSERT_COMPOUND_ERR    = "We were unable to add the new compound."
+	COMPOUND_SCALE_ERR     = "We were unable to update the compound scale."
 
 	INSERT_QUANTITY_ERR   = "There was a problem recording the quantity."
 	INSERT_ENTRY_ERR      = "We were unable to save the entry."

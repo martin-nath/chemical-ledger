@@ -3,6 +3,8 @@ package utils
 const (
 	REQUEST_BODY_DECODE_ERR = "Unable to read the request body. Ensure the data format is correct."
 
+	TRIAL_PERIOD_LIMIT_EXCEEDED = "Trial period limit exceeded. Please contact the developers."
+
 	MISSING_REQUIRED_FIELDS = "Required fields are missing. Complete all necessary fields and try again."
 	INVALID_ENTRY_TYPE      = "Unrecognized entry type. Use a valid entry type."
 	INVALID_DATE_FORMAT     = "Invalid date format. Use the format YYYY-MM-DD."

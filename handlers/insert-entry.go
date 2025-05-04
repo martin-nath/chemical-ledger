@@ -20,6 +20,22 @@ type InsertEntryReq struct {
 }
 
 func InsertEntryHandler(w http.ResponseWriter, r *http.Request) {
+	/* This part of the code is to prevent the trial period from exceeding the limit */
+	const TRIAL_PERIOD_ENTRY_LIMIT = 20
+	
+	var totalEntries int
+	if err := db.Conn.QueryRow("SELECT COUNT(*) FROM entry").Scan(&totalEntries); err != nil {
+		slog.Error("error getting total entries", "error", err)
+		utils.RespWithError(w, http.StatusInternalServerError, utils.ENTRY_RETRIEVAL_ERR)
+		return
+	}
+	if totalEntries >= TRIAL_PERIOD_ENTRY_LIMIT {
+		slog.Error("trial period limit exceeded", "total_entries", totalEntries)
+		utils.RespWithError(w, http.StatusBadRequest, utils.TRIAL_PERIOD_LIMIT_EXCEEDED)
+		return
+	}
+	/* Trial Period code ends here */
+
 	reqBody := &InsertEntryReq{}
 	if errStr := utils.DecodeJsonReq(r, reqBody); errStr != utils.NO_ERR {
 		slog.Error("failed to decode JSON request", "error", errStr)

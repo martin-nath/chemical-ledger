@@ -110,7 +110,7 @@ func MergeDateWithUnixTime(dateStr string, unixTime int64) (int64, error) {
 }
 
 func UpdateNetStockFromTodayOnwards(tx *sql.Tx, compoundId string, date int64) ErrorMessage {
-	var netStock int
+	var netStock int64
 	err := IfErrRetry(func() error {
 		err := tx.QueryRow("SELECT net_stock FROM entry WHERE compound_id = ? AND date < ? ORDER BY date DESC LIMIT 1", compoundId, date).Scan(&netStock)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -155,7 +155,7 @@ ORDER BY
 		var entry struct {
 			Id       string
 			Type     string
-			Quantity int
+			Quantity int64
 			Date     int64
 		}
 		err := rows.Scan(&entry.Id, &entry.Type, &entry.Quantity, &entry.Date)

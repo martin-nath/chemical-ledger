@@ -9,16 +9,16 @@ const (
 	FUTURE_DATE_ERR         = "The date you entered is in the future."
 	INVALID_DATE_RANGE      = "The provided date range is not valid."
 
-	INVALID_COMPOUND_ID          = "The provided compound identifier is not valid."
-	COMPOUND_ALREADY_EXISTS      = "A compound with this identifier already exists."
+	INVALID_COMPOUND_ID          = "The provided compound ID is not valid."
+	COMPOUND_ALREADY_EXISTS      = "A compound with this name already exists."
 	INVALID_COMPOUND_FILTER_TYPE = "The way you are trying to filter compounds is not valid."
 
-	INVALID_ENTRY_ID = "The provided entry identifier is not valid."
+	INVALID_ENTRY_ID = "The provided entry ID is not valid."
 
 	INVALID_SCALE_ERR = "The provided scale is not valid."
 
-	TX_START_ERR           = "An error occurred while starting the process."
-	COMMIT_TRANSACTION_ERR = "There was an error saving the changes."
+	TX_START_ERR              = "An error occurred while starting the process."
+	COMMIT_TRANSACTION_ERR    = "There was an error saving the changes."
 	INVALID_TRANSACTIONS_TYPE = "The provided transactions type is not valid."
 
 	COMPOUND_ID_CHECK_ERR  = "We couldn't verify the compound identifier."
